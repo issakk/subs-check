@@ -15,16 +15,19 @@ import (
 )
 
 func GetProxies() ([]map[string]any, error) {
-	log.Infoln("当前共设置了%d个订阅链接", len(config.GlobalConfig.SubUrls))
+	totalSubs := len(config.GlobalConfig.SubUrls)
+	log.Infoln("当前共设置了%d个订阅链接", totalSubs)
 	var mihomoProxies []map[string]any
 
-	for _, subUrl := range config.GlobalConfig.SubUrls {
+	for i, subUrl := range config.GlobalConfig.SubUrls {
+		log.Infoln("正在获取订阅 (%d/%d): %s", i+1, totalSubs, subUrl)
 		data, err := GetDateFromSubs(subUrl)
 		if err != nil {
-			// 获取订阅数据失败时，记录错误并继续下一个订阅
-			log.Errorln("获取订阅失败: %s, 错误: %v", subUrl, err)
+			log.Errorln("获取订阅失败 (%d/%d): %s, 错误: %v", i+1, totalSubs, subUrl, err)
 			continue
 		}
+		log.Infoln("成功获取订阅 (%d/%d): %s", i+1, totalSubs, subUrl)
+        
 		var config map[string]any
 		err = yaml.Unmarshal(data, &config)
 		if err != nil {
