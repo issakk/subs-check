@@ -21,7 +21,9 @@ func GetProxies() ([]map[string]any, error) {
 	for _, subUrl := range config.GlobalConfig.SubUrls {
 		data, err := GetDateFromSubs(subUrl)
 		if err != nil {
-			return nil, err
+			// 获取订阅数据失败时，记录错误并继续下一个订阅
+			log.Errorln("获取订阅失败: %s, 错误: %v", subUrl, err)
+			continue
 		}
 		var config map[string]any
 		err = yaml.Unmarshal(data, &config)
@@ -39,14 +41,12 @@ func GetProxies() ([]map[string]any, error) {
 					if err != nil {
 						continue
 					}
-					//如果proxy为空，则跳过
 					if parseProxy == nil {
 						continue
 					}
-					// fmt.Println(proxy)
 					mihomoProxies = append(mihomoProxies, parseProxy)
 				}
-				return mihomoProxies, nil
+				continue // 改为 continue 而不是 return，处理完当前订阅后继续下一个
 			}
 		}
 		proxyInterface, ok := config["proxies"]
@@ -68,12 +68,16 @@ func GetProxies() ([]map[string]any, error) {
 			mihomoProxies = append(mihomoProxies, proxyMap)
 		}
 	}
+	
+	if len(mihomoProxies) == 0 {
+		return nil, fmt.Errorf("没有找到可用的代理节点")
+	}
 	return mihomoProxies, nil
 }
 
 // 订阅链接中获取数据
 func GetDateFromSubs(subUrl string) ([]byte, error) {
-	maxRetries := 30
+	maxRetries := 10
 	var lastErr error
 
 	client := &http.Client{}
