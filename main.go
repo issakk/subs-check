@@ -191,6 +191,16 @@ func (app *App) checkProxies() error {
 	log.Infoln("检测完成")
 	save.SaveConfig(results)
 	utils.UpdateSubs()
+	// 在保存完成后添加通知
+	message := fmt.Sprintf("节点检测完成\n共检测 %d 个节点\n可用节点 %d 个\n时间: %s", 
+		len(results), 
+		len(results), 
+		time.Now().Format("2006-01-02 15:04:05"))
+	
+	if err := utils.SendWeixinNotification(message); err != nil {
+		log.Errorln("发送通知失败: %v", err)
+	}
+
 	return nil
 }
 
