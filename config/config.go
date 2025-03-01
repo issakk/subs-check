@@ -1,5 +1,6 @@
 package config
 
+// 在 Config 结构体中添加 WebhookURL 字段
 type Config struct {
 	PrintProgress   bool     `yaml:"print-progress"`
 	Concurrent      int      `yaml:"concurrent"`
@@ -23,6 +24,7 @@ type Config struct {
 	SubUrls         []string `yaml:"sub-urls"`
 	MihomoApiUrl    string   `yaml:"mihomo-api-url"`
 	MihomoApiSecret string   `yaml:"mihomo-api-secret"`
+	WebhookURL       string   `yaml:"webhook-url"`
 }
 
 var GlobalConfig Config

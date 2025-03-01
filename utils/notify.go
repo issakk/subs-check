@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"net/http"
 	"time"
-)
 
-const webhookURL = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=fdd31e44-d357-4b9d-95aa-d8d632cbada2"
+	"github.com/bestruirui/mihomo-check/config"
+)
 
 type WeixinMessage struct {
 	Msgtype string `json:"msgtype"`
@@ -18,6 +18,11 @@ type WeixinMessage struct {
 }
 
 func SendWeixinNotification(message string) error {
+	// 检查是否配置了webhook URL
+	if config.GlobalConfig.WebhookURL == "" {
+		return fmt.Errorf("未配置企业微信webhook URL")
+	}
+
 	msg := WeixinMessage{
 		Msgtype: "text",
 	}
@@ -29,7 +34,7 @@ func SendWeixinNotification(message string) error {
 	}
 
 	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Post(webhookURL, "application/json", bytes.NewBuffer(jsonData))
+	resp, err := client.Post(config.GlobalConfig.WebhookURL, "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
 		return fmt.Errorf("发送通知失败: %w", err)
 	}
