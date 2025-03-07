@@ -43,6 +43,7 @@ type Config struct {
 	Proxy           ProxyConfig  `yaml:"proxy"`
 	Rename          RenameConfig `yaml:"rename"`
 	LogLevel        string       `yaml:"log-level"`
+	WeworkBot       string       `yaml:"wework-bot"` // 新增企业微信机器人webhook地址
 }
 
 var GlobalConfig Config
