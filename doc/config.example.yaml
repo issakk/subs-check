@@ -21,6 +21,8 @@ check:
   download-timeout: 10
   # Speed test URL
   speed-test-url: https://github.com/AaronFeng753/Waifu2x-Extension-GUI/releases/download/v3.121.12-beta/Update-W2xEX-v3.121.12-beta-FROM-v3.121.01.7z
+  # Skip speed test for names matching this regex
+  speed-skip-name: 倍率|x\d+
   # Items to check
   items:
     - openai

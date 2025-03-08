@@ -14,17 +14,18 @@ import (
 
 func (c *Checker) CheckSpeed() {
 
-	re := regexp2.MustCompile(config.GlobalConfig.Check.SpeedSkipName, regexp2.None)
-
-	match, err := re.MatchString(c.Proxy.Raw["name"].(string))
-	if err != nil {
-		log.Debug("check speed skip name failed: %v", err)
-		return
-	}
-	if match {
-		c.Proxy.Info.SpeedSkip = true
-		log.Debug("check speed skip : %v", c.Proxy.Raw["name"])
-		return
+	if config.GlobalConfig.Check.SpeedSkipName != "" {
+		re := regexp2.MustCompile(config.GlobalConfig.Check.SpeedSkipName, regexp2.None)
+		match, err := re.MatchString(c.Proxy.Raw["name"].(string))
+		if err != nil {
+			log.Debug("check speed skip name failed: %v", err)
+			return
+		}
+		if match {
+			c.Proxy.Info.SpeedSkip = true
+			log.Debug("check speed skip : %v", c.Proxy.Raw["name"])
+			return
+		}
 	}
 
 	ctx, cancel := context.WithCancel(c.Proxy.Ctx)
