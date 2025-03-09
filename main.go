@@ -241,7 +241,7 @@ func maintask() {
 	log.Info("check end %v proxies", len(proxies))
 
 	// 添加处理完成通知
-	message := fmt.Sprintf("订阅检测处理完成!\n共处理节点数量: %v", aliveCount)
+	message := fmt.Sprintf("订阅检测处理完成!\n共处理节点数量: %v", len(proxies))
 	if err := utils.SendWeworkNotification(message); err != nil {
 		log.Error("发送企业微信通知失败: %v", err)
 	}
