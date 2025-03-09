@@ -25,7 +25,7 @@ import (
 var mihomoProxiesMutex sync.Mutex
 
 func GetProxies(proxies *[]info.Proxy) {
-	log.Info("currently, there are %d subscription links set", len(config.GlobalConfig.SubUrls))
+	log.Info("subscription links count: %v", len(config.GlobalConfig.SubUrls))
 	numWorkers := min(len(config.GlobalConfig.SubUrls), config.GlobalConfig.Check.Concurrent)
 
 	pool, _ := ants.NewPool(numWorkers)
@@ -71,9 +71,21 @@ func taskGetProxies(args string, proxiesInfo *[]info.Proxy) {
 				if parseProxy == nil {
 					continue
 				}
-				mihomoProxiesMutex.Lock()
-				*proxiesInfo = append(*proxiesInfo, info.Proxy{Raw: parseProxy})
-				mihomoProxiesMutex.Unlock()
+				if len(config.GlobalConfig.TypeInclude) > 0 {
+					for _, t := range config.GlobalConfig.TypeInclude {
+						if t == parseProxy["type"].(string) {
+							mihomoProxiesMutex.Lock()
+							*proxiesInfo = append(*proxiesInfo, info.Proxy{Raw: parseProxy})
+							mihomoProxiesMutex.Unlock()
+							break
+						}
+					}
+				} else {
+					mihomoProxiesMutex.Lock()
+					*proxiesInfo = append(*proxiesInfo, info.Proxy{Raw: parseProxy})
+					mihomoProxiesMutex.Unlock()
+				}
+
 			}
 		}
 	}
@@ -188,9 +200,20 @@ func ParseYamlProxy(data []byte, proxies *[]info.Proxy) error {
 				if err := yaml.Unmarshal(yamlBuffer.Bytes(), &proxy); err != nil {
 
 				} else {
-					mihomoProxiesMutex.Lock()
-					*proxies = append(*proxies, info.Proxy{Raw: proxy[0]})
-					mihomoProxiesMutex.Unlock()
+					if len(config.GlobalConfig.TypeInclude) > 0 {
+						for _, t := range config.GlobalConfig.TypeInclude {
+							if t == proxy[0]["type"].(string) {
+								mihomoProxiesMutex.Lock()
+								*proxies = append(*proxies, info.Proxy{Raw: proxy[0]})
+								mihomoProxiesMutex.Unlock()
+								break
+							}
+						}
+					} else {
+						mihomoProxiesMutex.Lock()
+						*proxies = append(*proxies, info.Proxy{Raw: proxy[0]})
+						mihomoProxiesMutex.Unlock()
+					}
 				}
 				yamlBuffer.Reset()
 			}
@@ -204,9 +227,20 @@ func ParseYamlProxy(data []byte, proxies *[]info.Proxy) error {
 		var proxy []map[string]any
 		if err := yaml.Unmarshal(yamlBuffer.Bytes(), &proxy); err != nil {
 		} else {
-			mihomoProxiesMutex.Lock()
-			*proxies = append(*proxies, info.Proxy{Raw: proxy[0]})
-			mihomoProxiesMutex.Unlock()
+			if len(config.GlobalConfig.TypeInclude) > 0 {
+				for _, t := range config.GlobalConfig.TypeInclude {
+					if t == proxy[0]["type"].(string) {
+						mihomoProxiesMutex.Lock()
+						*proxies = append(*proxies, info.Proxy{Raw: proxy[0]})
+						mihomoProxiesMutex.Unlock()
+						break
+					}
+				}
+			} else {
+				mihomoProxiesMutex.Lock()
+				*proxies = append(*proxies, info.Proxy{Raw: proxy[0]})
+				mihomoProxiesMutex.Unlock()
+			}
 		}
 	}
 

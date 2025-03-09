@@ -1,5 +1,10 @@
 # BestSub Usage Guide
 
+> ⚠️ **Important Notice**  
+> This project is under active development.  
+> Configuration files may change frequently.  
+> Please pay close attention to the documentation updates.
+
 [中文文档](./README_zh.md) | English Documentation
 
 ## Direct Execution

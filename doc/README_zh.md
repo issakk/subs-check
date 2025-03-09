@@ -1,5 +1,11 @@
 # 使用方法
 
+> ⚠️ **重要提示**  
+> 本项目正在积极开发中。  
+> 配置文件可能会频繁更改。  
+> 请密切关注文档更新。
+
+
 ### 直接运行
 
 1. 根据自己系统选择 [release](https://github.com/bestruirui/BestSub/releases) 中的文件

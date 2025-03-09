@@ -17,21 +17,29 @@ check:
   timeout: 2000
   # 最低测速 单位KB/s
   min-speed: 2048
-  # 下载测试超时时间(s)
+  # 下载测试超时时间 单位秒
   download-timeout: 10
+  # 测速下载大小 单位MB
+  download-size: 50
   # 测速地址
-  speed-test-url: https://github.com/AaronFeng753/Waifu2x-Extension-GUI/releases/download/v3.121.12-beta/Update-W2xEX-v3.121.12-beta-FROM-v3.121.01.7z
+  speed-test-url:
+    - https://speed.cloudflare.com/__down?bytes=1073741824
+    - https://github.com/VSCodium/vscodium/releases/download/1.98.0.25067/codium-1.98.0.25067-el9.aarch64.rpm
   # 跳过测速的名称
   speed-skip-name: 倍率|x\d+
   # 测速并发
   speed-check-concurrent: 1
+  # 测速数量
+  speed-count: 10
+  # 测速保存
+  speed-save: true
   # 检查项目
   items:
-    # - openai
-    # - youtube
-    # - netflix
-    # - disney
-    # - speed
+    - openai
+    - youtube
+    - netflix
+    - disney
+    - speed
 
 save:
   # 保存方法 webdav 或 http 或 gist 或 r2
@@ -50,6 +58,9 @@ proxy:
   type: "http" # 可选值: http, socks
   address: "http://192.168.31.11:7890" # 代理地址
 # 订阅链接
+# type-include:
+#   - ss
+#   - vmess
 sub-urls:
   - https://your-sub-url/sub1
   - https://your-sub-url/sub2
