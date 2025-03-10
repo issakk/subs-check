@@ -204,6 +204,7 @@ func maintask() {
 
 	for i := range proxies {
 		wg.Add(1)
+		i := i
 		pool.Submit(func() {
 			defer wg.Done()
 			proxyCheckTask(&proxies[i])
@@ -252,10 +253,10 @@ func maintask() {
 		for i := 0; i < len(proxies); i++ {
 			if speedCount < config.GlobalConfig.Check.SpeedCount {
 				wg.Add(1)
+				i := i
 				pool.Submit(func() {
 					defer wg.Done()
 					proxySpeedTask(&proxies[i])
-					log.Info("proxy %v speed %v count %v", proxies[i].Raw["name"], proxies[i].Info.Speed, speedCount)
 					if proxies[i].Info.Speed > config.GlobalConfig.Check.MinSpeed {
 						speedCount++
 						var speedStr string

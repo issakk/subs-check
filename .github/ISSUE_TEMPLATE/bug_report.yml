@@ -9,12 +9,13 @@ body:
       label: 验证步骤
       description: 在提交之前，请勾选以下选项以证明您已经阅读并理解了以下要求，否则该 issue 将被关闭。
       options:
-        - label: 我已经阅读了 [config.example.yaml](https://github.com/bestruirui/subs-check/blob/master/doc/config.example.yaml)，了解所有我编写的配置文件项的含义，而不是大量堆砌看似有用的选项或默认值。
+        - label: 由于项目处于积极开发阶段，配置文件可能会频繁更改，更新版本后出现问题请先阅读最新文档
           required: false
-        - label: 我仔细看过 [README.md](https://github.com/bestruirui/subs-check/blob/master/README.md) 并未解决问题
+        - label: 我已经阅读了 [Doc](https://github.com/bestruirui/BestSub/blob/master/doc/) 文件夹下所有文档，了解所有我编写的配置文件项的含义，而不是大量堆砌看似有用的选项或默认值。
           required: false
-        - label: 我已在 [Issue Tracker](https://github.com/bestruirui/mihomo-check/issues) 中寻找过我要提出的问题，并且没有找到
+        - label: 我已在 [Issue Tracker](https://github.com/bestruirui/BestSub/issues) 中寻找过我要提出的问题，并且没有找到
           required: false
+        
   - type: textarea
     attributes:
       render: yaml
