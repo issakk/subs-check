@@ -241,11 +241,6 @@ func maintask() {
 
 	log.Info("check end %v proxies", len(proxies))
 
-	// 添加处理完成通知
-	message := fmt.Sprintf("订阅检测处理完成!\n共处理节点数量: %v", len(proxies))
-	if err := utils.SendWeworkNotification(message); err != nil {
-		log.Error("发送企业微信通知失败: %v", err)
-	}
 	if utils.Contains(config.GlobalConfig.Check.Items, "speed") {
 		log.Info("start speed test concurrent %d", config.GlobalConfig.Check.SpeedCheckConcurrent)
 		pool.Release()
@@ -284,7 +279,13 @@ func maintask() {
 		log.Info("end speed test")
 	}
 
-	saver.SaveConfig(&proxies)
+	// 获取实际保存的节点数量
+	savedCount := saver.SaveConfig(&proxies)
+
+	message := fmt.Sprintf("订阅检测处理完成!\n共处理节点数量: %v", savedCount)
+	if err := utils.SendWeworkNotification(message); err != nil {
+		log.Error("发送企业微信通知失败: %v", err)
+	}
 
 	proxies = nil
 

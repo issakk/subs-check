@@ -66,7 +66,8 @@ func NewConfigSaver(results *[]info.Proxy) *ConfigSaver {
 	}
 }
 
-func SaveConfig(results *[]info.Proxy) {
+// 修改函数签名，返回保存的节点数量
+func SaveConfig(results *[]info.Proxy) int {
 	if len(config.GlobalConfig.Save.BeforeSaveDo) > 0 {
 		if err := BeforeSaveDo(results); err != nil {
 			log.Error("Failed to execute before-save scripts: %v", err)
@@ -74,8 +75,17 @@ func SaveConfig(results *[]info.Proxy) {
 	}
 
 	saver := NewConfigSaver(results)
+	savedCount := 0
 	if err := saver.Save(); err != nil {
 		log.Error("save config failed: %v", err)
+	} else {
+		// 获取 all.yaml 中的节点数量作为最终保存的数量
+		for _, category := range saver.categories {
+			if category.Name == "all.yaml" {
+				savedCount = len(category.Proxies)
+				break
+			}
+		}
 	}
 
 	if len(config.GlobalConfig.Save.AfterSaveDo) > 0 {
@@ -83,6 +93,8 @@ func SaveConfig(results *[]info.Proxy) {
 			log.Error("Failed to execute after-save scripts: %v", err)
 		}
 	}
+
+	return savedCount
 }
 
 func (cs *ConfigSaver) Save() error {
