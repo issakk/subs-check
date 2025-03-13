@@ -39,6 +39,7 @@ check:
 - `interval`: 检测间隔时间 单位分钟 最低必须大于10分钟
 - `download-timeout`: 下载超时时间 单位秒 测速时，下载文件的最大超时时间
 - `download-size`: 下载文件大小 单位MB 测速时，下载文件的大小
+- `min-speed`: 最低测速 单位KB/s 测速时，如果速度低于此值，则根据`speed-save`的值决定是否保存
 - `speed-test-url`: 测速地址 会遍历所有地址，选择一个可用的进行测速
 - `speed-skip-name`: 跳过测速的名称(正则表达式) 例如：`(倍率|x\d+(\.\d+)?|\d+(\.\d+)?x)` 可用于屏蔽高倍率节点，不参与测速
 - `speed-check-concurrent`: 测速并发(带宽小的可用适当调低，但调低后，检测速度会变慢)
@@ -51,7 +52,13 @@ check:
 
 ```yaml
 save:
-  method: http
+  method: 
+    - http
+    - gist
+  before-save-do:
+    - D:\Github\bestsub\doc\scripts\node.js
+  after-save-do:
+    - D:\Github\bestsub\test\powershell.ps1
   port: 8081
   webdav-url: "https://webdav-url/dav/"
   webdav-username: "webdav-username"
@@ -63,7 +70,7 @@ save:
   worker-token: token 
 ```
 
-- `method`: 保存方法，可选值为 `webdav` `http` `gist` `r2` `local`
+- `method`: 保存方法，可选值为 `webdav` `http` `gist` `r2` `local` 支持多种保存方式同时保存
 - `port`: `http` 保存方式下的端口
 - webdav:
     - `webdav-url`: webdav url
@@ -76,6 +83,11 @@ save:
 - r2:
   - `worker-url`: worker url
   - `worker-token`: worker token
+
+- before-save-do: 保存前执行的脚本请填写绝对路径 支持 `js` `py` `sh` `ps1` 等 示例：[node.js](./doc/scripts/node.js)
+- after-save-do: 保存后执行的脚本请填写绝对路径 支持 `js` `py` `sh` `ps1` 等 示例：[powershell.ps1](./test/powershell.ps1)
+
+
 ## mihomo
 
 ```yaml
@@ -110,6 +122,8 @@ rename:
 proxy:
   type: "http" # Options: http, socks
   address: "http://192.168.31.11:7890" # Proxy address
+  password: ""
+  username: ""
 ```
 此处代理用于拉取订阅和保存使用，例如保存到gist时，则需要设置此选项
 
