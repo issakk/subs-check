@@ -147,7 +147,7 @@ func CountryCodeRegexInit(renamePath string) {
 func (p *Proxy) CountryCodeRegex() {
 	for _, country := range CountryCodeRegex {
 		re := regexp2.MustCompile(country.Recognition, regexp2.None)
-		match, err := re.MatchString(p.Raw["name"].(string))
+		match, err := re.MatchString(cast.ToString(p.Raw["name"]))
 		if err != nil {
 			fmt.Printf("Regex match error: %v\n", err)
 			continue
