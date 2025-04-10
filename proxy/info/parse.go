@@ -4,16 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/bestruirui/bestsub/utils/log"
+	"github.com/dlclark/regexp2"
+	"github.com/spf13/cast"
+	"gopkg.in/yaml.v3"
 	"io"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/bestruirui/bestsub/utils/log"
-	"github.com/dlclark/regexp2"
-	"gopkg.in/yaml.v3"
 )
 
 func (p *Proxy) CountryCodeFromApi() {
@@ -107,7 +107,9 @@ func (p *Proxy) CountryCodeFromApi() {
 }
 func getFlag(countryCode string) string {
 	code := strings.ToUpper(countryCode)
-
+	if len(code) != 2 {
+		code = "UN"
+	}
 	const flagBase = 127397
 
 	first := string(rune(code[0]) + flagBase)
@@ -161,8 +163,8 @@ func (p *Proxy) CountryCodeRegex() {
 var rateRegex = regexp2.MustCompile(`(?:倍率|x(?<value>\d+(?:\.\d+)?))`, regexp2.None)
 
 func (p *Proxy) ParseRate() {
-
-	match, err := rateRegex.FindStringMatch(p.Raw["name"].(string))
+	log.Debug("parse proxy %s rate", p.Raw)
+	match, err := rateRegex.FindStringMatch(cast.ToString(p.Raw["name"]))
 	if err != nil {
 		log.Debug("parse rate failed: %v", err)
 		return

@@ -3,8 +3,11 @@ module github.com/bestruirui/bestsub
 go 1.23.0
 
 require (
+	github.com/dlclark/regexp2 v1.11.5
 	github.com/fsnotify/fsnotify v1.8.0
 	github.com/metacubex/mihomo v1.19.2
+	github.com/panjf2000/ants/v2 v2.11.1
+	github.com/spf13/cast v1.7.1
 	golang.org/x/net v0.35.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -17,7 +20,6 @@ require (
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/cloudflare/circl v1.6.0 // indirect
 	github.com/coreos/go-iptables v0.8.0 // indirect
-	github.com/dlclark/regexp2 v1.11.5 // indirect
 	github.com/ebitengine/purego v0.8.2 // indirect
 	github.com/enfein/mieru/v3 v3.12.0 // indirect
 	github.com/ericlagergren/aegis v0.0.0-20230312195928-b4ce538b56f9 // indirect
@@ -63,7 +65,6 @@ require (
 	github.com/oasisprotocol/deoxysii v0.0.0-20220228165953-2091330c22b7 // indirect
 	github.com/onsi/ginkgo/v2 v2.22.2 // indirect
 	github.com/openacid/low v0.1.21 // indirect
-	github.com/panjf2000/ants/v2 v2.11.1 // indirect
 	github.com/pierrec/lz4/v4 v4.1.22 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
 	github.com/puzpuzpuz/xsync/v3 v3.5.1 // indirect
