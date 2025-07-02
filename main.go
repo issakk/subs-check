@@ -280,8 +280,8 @@ func maintask() {
 	}
 
 	// 获取实际保存的节点数量
-	savedCount := saver.SaveConfig(&proxies)
-	saveProxySource(&proxies)
+	savedProxies, savedCount := saver.SaveConfig(&proxies)
+	saveProxySource(&savedProxies)
 
 	message := fmt.Sprintf("订阅检测处理完成!\n共处理节点数量: %v", savedCount)
 	if err := utils.SendWeworkNotification(message); err != nil {

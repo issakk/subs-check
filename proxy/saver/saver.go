@@ -67,7 +67,7 @@ func NewConfigSaver(results *[]info.Proxy) *ConfigSaver {
 }
 
 // 修改函数签名，返回保存的节点数量
-func SaveConfig(results *[]info.Proxy) int {
+func SaveConfig(results *[]info.Proxy) ([]info.Proxy, int) {
 	if len(config.GlobalConfig.Save.BeforeSaveDo) > 0 {
 		if err := BeforeSaveDo(results); err != nil {
 			log.Error("Failed to execute before-save scripts: %v", err)
@@ -76,6 +76,7 @@ func SaveConfig(results *[]info.Proxy) int {
 
 	saver := NewConfigSaver(results)
 	savedCount := 0
+	savedProxies := make([]info.Proxy, 0)
 	if err := saver.Save(); err != nil {
 		log.Error("save config failed: %v", err)
 	} else {
@@ -83,6 +84,18 @@ func SaveConfig(results *[]info.Proxy) int {
 		for _, category := range saver.categories {
 			if category.Name == "all.yaml" {
 				savedCount = len(category.Proxies)
+				for _, pRaw := range category.Proxies {
+					// Find the original info.Proxy object from the initial results slice
+					// This is a simplified approach, assuming Raw["name"] is unique enough
+					// A more robust solution might involve passing the original info.Proxy objects
+					// through the categorization process, or adding a unique ID to info.Proxy.
+					for _, originalProxy := range *results {
+						if originalProxy.Raw["name"] == pRaw["name"] {
+							savedProxies = append(savedProxies, originalProxy)
+							break
+						}
+					}
+				}
 				break
 			}
 		}
@@ -94,7 +107,7 @@ func SaveConfig(results *[]info.Proxy) int {
 		}
 	}
 
-	return savedCount
+	return savedProxies, savedCount
 }
 
 func (cs *ConfigSaver) Save() error {
