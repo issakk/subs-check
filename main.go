@@ -297,9 +297,9 @@ func maintask() {
 func saveProxySource(proxies *[]info.Proxy) {
 	execPath := utils.GetExecutablePath()
 	filePath := filepath.Join(execPath, "proxy_source.txt")
-	file, err := os.Create(filePath)
+	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		log.Error("create proxy source file failed: %v", err)
+		log.Error("open proxy source file failed: %v", err)
 		return
 	}
 	defer file.Close()
