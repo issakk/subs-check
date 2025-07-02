@@ -159,6 +159,7 @@ func IsYaml(data []byte, subUrl string) bool {
 	return false
 }
 func ParseYamlProxy(data []byte, proxies *[]info.Proxy, subUrl string) error {
+	log.Debug("Entering ParseYamlProxy for subUrl: %s", subUrl)
 	var inProxiesSection bool
 	var yamlBuffer bytes.Buffer
 	var indent int
@@ -168,12 +169,16 @@ func ParseYamlProxy(data []byte, proxies *[]info.Proxy, subUrl string) error {
 	cleanedFile := bytes.NewReader(cleandata)
 	scanner := bufio.NewScanner(cleanedFile)
 
+	lineNum := 0
 	for scanner.Scan() {
+		lineNum++
 		line := scanner.Text()
 		trimmedLine := strings.TrimSpace(line)
+		log.Debug("Processing line %d: %s", lineNum, trimmedLine)
 
 		if trimmedLine == "proxies:" {
 			inProxiesSection = true
+			log.Debug("Found 'proxies:' section at line %d", lineNum)
 			continue
 		}
 
@@ -184,22 +189,27 @@ func ParseYamlProxy(data []byte, proxies *[]info.Proxy, subUrl string) error {
 		if isFirst {
 			indent = len(line) - len(trimmedLine)
 			isFirst = false
+			log.Debug("Determined indent: %d", indent)
 		}
 
 		if len(line)-len(trimmedLine) == 0 && !strings.HasPrefix(trimmedLine, "-") && trimmedLine != "" {
+			log.Debug("Exiting proxies section at line %d due to unindented line: %s", lineNum, trimmedLine)
 			break
 		}
 
 		if trimmedLine == "" || strings.HasPrefix(trimmedLine, "#") {
+			log.Debug("Skipping empty or comment line %d", lineNum)
 			continue
 		}
 
 		if strings.HasPrefix(trimmedLine, "-") && len(line)-len(trimmedLine) == indent {
 			if yamlBuffer.Len() > 0 {
+				log.Debug("Attempting to unmarshal YAML buffer at line %d. Buffer size: %d", lineNum, yamlBuffer.Len())
 				var proxy []map[string]any
 				if err := yaml.Unmarshal(yamlBuffer.Bytes(), &proxy); err != nil {
-
+					log.Warn("Failed to unmarshal YAML proxy at line %d: %v. Buffer content: %s", lineNum, err, yamlBuffer.String())
 				} else {
+					log.Debug("Successfully unmarshaled proxy at line %d. Proxy type: %s", lineNum, proxy[0]["type"].(string))
 					if len(config.GlobalConfig.TypeInclude) > 0 {
 						for _, t := range config.GlobalConfig.TypeInclude {
 							if t == proxy[0]["type"].(string) {
@@ -216,19 +226,23 @@ func ParseYamlProxy(data []byte, proxies *[]info.Proxy, subUrl string) error {
 					}
 				}
 				yamlBuffer.Reset()
+				log.Debug("YAML buffer reset.")
 			}
+			yamlBuffer.WriteString(line + "\n")
+			log.Debug("Added line %d to YAML buffer. Current buffer size: %d", lineNum, yamlBuffer.Len())
 		} else if yamlBuffer.Len() > 0 {
 			yamlBuffer.WriteString(line + "\n")
-		}
-		if strings.HasPrefix(trimmedLine, "-") && len(line)-len(trimmedLine) == indent {
-			yamlBuffer.WriteString(line + "\n")
+			log.Debug("Added line %d to YAML buffer (continuation). Current buffer size: %d", lineNum, yamlBuffer.Len())
 		}
 	}
 
 	if yamlBuffer.Len() > 0 {
+		log.Debug("Attempting to unmarshal remaining YAML buffer after loop. Buffer size: %d", yamlBuffer.Len())
 		var proxy []map[string]any
 		if err := yaml.Unmarshal(yamlBuffer.Bytes(), &proxy); err != nil {
+			log.Warn("Failed to unmarshal remaining YAML proxy: %v. Buffer content: %s", err, yamlBuffer.String())
 		} else {
+			log.Debug("Successfully unmarshaled remaining proxy. Proxy type: %s", proxy[0]["type"].(string))
 			if len(config.GlobalConfig.TypeInclude) > 0 {
 				for _, t := range config.GlobalConfig.TypeInclude {
 					if t == proxy[0]["type"].(string) {
@@ -245,6 +259,6 @@ func ParseYamlProxy(data []byte, proxies *[]info.Proxy, subUrl string) error {
 			}
 		}
 	}
-
+	log.Debug("Exiting ParseYamlProxy for subUrl: %s", subUrl)
 	return nil
 }
