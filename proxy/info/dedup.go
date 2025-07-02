@@ -10,31 +10,30 @@ import (
 )
 
 var (
-	dedupProxies map[string]Proxy
+	dedupProxies map[string]map[string]any
 	dedupMutex   sync.Mutex
 )
 
-func addDedupProxy(key string, p Proxy) {
+func addDedupProxy(key string, arg map[string]any) {
 	dedupMutex.Lock()
 	defer dedupMutex.Unlock()
 	if _, exists := dedupProxies[key]; !exists {
-		dedupProxies[key] = p
+		dedupProxies[key] = arg
 	}
 }
 
 func DeduplicateProxies(proxies *[]Proxy) {
 	var wg sync.WaitGroup
-	dedupProxies = make(map[string]Proxy)
+	dedupProxies = make(map[string]map[string]any)
 
 	pool, _ := ants.NewPool(config.GlobalConfig.Check.Concurrent)
 	defer pool.Release()
 
 	for i := range *proxies {
 		wg.Add(1)
-		i := i
 		pool.Submit(func() {
 			defer wg.Done()
-			deduplicateTask((*proxies)[i])
+			deduplicateTask((*proxies)[i].Raw)
 		})
 	}
 	wg.Wait()
@@ -42,13 +41,13 @@ func DeduplicateProxies(proxies *[]Proxy) {
 	*proxies = (*proxies)[:0]
 
 	for _, proxy := range dedupProxies {
-		*proxies = append(*proxies, proxy)
+		*proxies = append(*proxies, Proxy{Raw: proxy})
 	}
 	dedupProxies = nil
 }
 
-func deduplicateTask(p Proxy) {
-	arg := p.Raw
+func deduplicateTask(arg map[string]any) {
+
 	server, serverOk := "", false
 	if arg["type"] == "vless" || arg["type"] == "vmess" {
 		server, serverOk = arg["servername"].(string)
@@ -72,5 +71,5 @@ func deduplicateTask(p Proxy) {
 	}
 	key := fmt.Sprintf("%s:%v", serverip[0], port)
 
-	addDedupProxy(key, p)
+	addDedupProxy(key, arg)
 }
