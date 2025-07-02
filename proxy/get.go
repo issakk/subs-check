@@ -238,7 +238,7 @@ func ParseYamlProxy(data []byte, proxies *[]info.Proxy, subUrl string) error {
 				}
 			} else {
 				mihomoProxiesMutex.Lock()
-				*proxies = append(*proxies, info.Proxy{Raw: proxy[0]})
+				*proxies = append(*proxies, info.Proxy{Raw: proxy[0], SubUrl: subUrl})
 				mihomoProxiesMutex.Unlock()
 			}
 		}
