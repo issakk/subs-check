@@ -217,8 +217,10 @@ func ParseYamlProxy(data []byte, proxies *[]info.Proxy, subUrl string) error {
 				}
 				yamlBuffer.Reset()
 			}
-			yamlBuffer.WriteString(line + "\n")
 		} else if yamlBuffer.Len() > 0 {
+			yamlBuffer.WriteString(line + "\n")
+		}
+		if strings.HasPrefix(trimmedLine, "-") && len(line)-len(trimmedLine) == indent {
 			yamlBuffer.WriteString(line + "\n")
 		}
 	}
