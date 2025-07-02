@@ -281,6 +281,7 @@ func maintask() {
 
 	// 获取实际保存的节点数量
 	savedCount := saver.SaveConfig(&proxies)
+	saveProxySource(&proxies)
 
 	message := fmt.Sprintf("订阅检测处理完成!\n共处理节点数量: %v", savedCount)
 	if err := utils.SendWeworkNotification(message); err != nil {
@@ -291,6 +292,23 @@ func maintask() {
 
 	pool.Release()
 
+}
+
+func saveProxySource(proxies *[]info.Proxy) {
+	execPath := utils.GetExecutablePath()
+	filePath := filepath.Join(execPath, "proxy_source.txt")
+	file, err := os.Create(filePath)
+	if err != nil {
+		log.Error("create proxy source file failed: %v", err)
+		return
+	}
+	defer file.Close()
+
+	for _, proxy := range *proxies {
+		file.WriteString(fmt.Sprintf("Proxy: %s, From: %s\n", proxy.Raw["name"], proxy.SubUrl))
+	}
+
+	log.Info("save proxy source success: %s", filePath)
 }
 
 func proxyCheckTask(proxy *info.Proxy) {

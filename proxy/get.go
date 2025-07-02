@@ -49,7 +49,7 @@ func taskGetProxies(args string, proxiesInfo *[]info.Proxy) {
 		return
 	}
 	if IsYaml(data, args) {
-		err := ParseYamlProxy(data, proxiesInfo)
+		err := ParseYamlProxy(data, proxiesInfo, args)
 		if err != nil {
 			log.Warn("subscription link: %s has no proxies", log.MaskURL(args))
 			return
@@ -75,14 +75,14 @@ func taskGetProxies(args string, proxiesInfo *[]info.Proxy) {
 					for _, t := range config.GlobalConfig.TypeInclude {
 						if t == parseProxy["type"].(string) {
 							mihomoProxiesMutex.Lock()
-							*proxiesInfo = append(*proxiesInfo, info.Proxy{Raw: parseProxy})
+							*proxiesInfo = append(*proxiesInfo, info.Proxy{Raw: parseProxy, SubUrl: args})
 							mihomoProxiesMutex.Unlock()
 							break
 						}
 					}
 				} else {
 					mihomoProxiesMutex.Lock()
-					*proxiesInfo = append(*proxiesInfo, info.Proxy{Raw: parseProxy})
+					*proxiesInfo = append(*proxiesInfo, info.Proxy{Raw: parseProxy, SubUrl: args})
 					mihomoProxiesMutex.Unlock()
 				}
 
@@ -158,7 +158,7 @@ func IsYaml(data []byte, subUrl string) bool {
 	}
 	return false
 }
-func ParseYamlProxy(data []byte, proxies *[]info.Proxy) error {
+func ParseYamlProxy(data []byte, proxies *[]info.Proxy, subUrl string) error {
 	var inProxiesSection bool
 	var yamlBuffer bytes.Buffer
 	var indent int
@@ -204,14 +204,14 @@ func ParseYamlProxy(data []byte, proxies *[]info.Proxy) error {
 						for _, t := range config.GlobalConfig.TypeInclude {
 							if t == proxy[0]["type"].(string) {
 								mihomoProxiesMutex.Lock()
-								*proxies = append(*proxies, info.Proxy{Raw: proxy[0]})
+								*proxies = append(*proxies, info.Proxy{Raw: proxy[0], SubUrl: subUrl})
 								mihomoProxiesMutex.Unlock()
 								break
 							}
 						}
 					} else {
 						mihomoProxiesMutex.Lock()
-						*proxies = append(*proxies, info.Proxy{Raw: proxy[0]})
+						*proxies = append(*proxies, info.Proxy{Raw: proxy[0], SubUrl: subUrl})
 						mihomoProxiesMutex.Unlock()
 					}
 				}
@@ -231,7 +231,7 @@ func ParseYamlProxy(data []byte, proxies *[]info.Proxy) error {
 				for _, t := range config.GlobalConfig.TypeInclude {
 					if t == proxy[0]["type"].(string) {
 						mihomoProxiesMutex.Lock()
-						*proxies = append(*proxies, info.Proxy{Raw: proxy[0]})
+						*proxies = append(*proxies, info.Proxy{Raw: proxy[0], SubUrl: subUrl})
 						mihomoProxiesMutex.Unlock()
 						break
 					}

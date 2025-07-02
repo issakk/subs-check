@@ -36,6 +36,7 @@ type ProxyInfo struct {
 type Proxy struct {
 	Raw    map[string]any
 	Id     int
+	SubUrl string
 	Ctx    context.Context
 	Cancel context.CancelFunc
 	Client *http.Client
