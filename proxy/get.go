@@ -75,14 +75,14 @@ func taskGetProxies(args string, proxiesInfo *[]info.Proxy) {
 					for _, t := range config.GlobalConfig.TypeInclude {
 						if t == parseProxy["type"].(string) {
 							mihomoProxiesMutex.Lock()
-							*proxiesInfo = append(*proxiesInfo, *NewProxy(parseProxy, args))
+							*proxiesInfo = append(*proxiesInfo, info.Proxy{Raw: parseProxy, SubUrl: args})
 							mihomoProxiesMutex.Unlock()
 							break
 						}
 					}
 				} else {
 					mihomoProxiesMutex.Lock()
-					*proxiesInfo = append(*proxiesInfo, *NewProxy(parseProxy, args))
+					*proxiesInfo = append(*proxiesInfo, info.Proxy{Raw: parseProxy, SubUrl: args})
 					mihomoProxiesMutex.Unlock()
 				}
 
@@ -214,14 +214,14 @@ func ParseYamlProxy(data []byte, proxies *[]info.Proxy, subUrl string) error {
 						for _, t := range config.GlobalConfig.TypeInclude {
 							if t == proxy[0]["type"].(string) {
 								mihomoProxiesMutex.Lock()
-								*proxies = append(*proxies, *NewProxy(proxy[0], subUrl))
+								*proxies = append(*proxies, info.Proxy{Raw: proxy[0], SubUrl: subUrl})
 								mihomoProxiesMutex.Unlock()
 								break
 							}
 						}
 					} else {
 						mihomoProxiesMutex.Lock()
-						*proxies = append(*proxies, *NewProxy(proxy[0], subUrl))
+						*proxies = append(*proxies, info.Proxy{Raw: proxy[0], SubUrl: subUrl})
 						mihomoProxiesMutex.Unlock()
 					}
 				}
@@ -247,14 +247,14 @@ func ParseYamlProxy(data []byte, proxies *[]info.Proxy, subUrl string) error {
 				for _, t := range config.GlobalConfig.TypeInclude {
 					if t == proxy[0]["type"].(string) {
 						mihomoProxiesMutex.Lock()
-						*proxies = append(*proxies, *NewProxy(proxy[0], subUrl))
+						*proxies = append(*proxies, info.Proxy{Raw: proxy[0], SubUrl: subUrl})
 						mihomoProxiesMutex.Unlock()
 						break
 					}
 				}
 			} else {
 				mihomoProxiesMutex.Lock()
-				*proxies = append(*proxies, *NewProxy(proxy[0], subUrl))
+				*proxies = append(*proxies, info.Proxy{Raw: proxy[0], SubUrl: subUrl})
 				mihomoProxiesMutex.Unlock()
 			}
 		}
