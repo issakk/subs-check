@@ -10,11 +10,11 @@ import (
 )
 
 var (
-	dedupProxies map[string]Proxy
+	dedupProxies map[string]*Proxy
 	dedupMutex   sync.Mutex
 )
 
-func addDedupProxy(key string, p Proxy) {
+func addDedupProxy(key string, p *Proxy) {
 	dedupMutex.Lock()
 	defer dedupMutex.Unlock()
 	if _, exists := dedupProxies[key]; !exists {
@@ -24,7 +24,7 @@ func addDedupProxy(key string, p Proxy) {
 
 func DeduplicateProxies(proxies *[]Proxy) {
 	var wg sync.WaitGroup
-	dedupProxies = make(map[string]Proxy)
+	dedupProxies = make(map[string]*Proxy)
 
 	pool, _ := ants.NewPool(config.GlobalConfig.Check.Concurrent)
 	defer pool.Release()
@@ -34,7 +34,7 @@ func DeduplicateProxies(proxies *[]Proxy) {
 		i := i
 		pool.Submit(func() {
 			defer wg.Done()
-			deduplicateTask((*proxies)[i])
+			deduplicateTask(&(*proxies)[i])
 		})
 	}
 	wg.Wait()
@@ -42,12 +42,12 @@ func DeduplicateProxies(proxies *[]Proxy) {
 	*proxies = (*proxies)[:0]
 
 	for _, proxy := range dedupProxies {
-		*proxies = append(*proxies, proxy)
+		*proxies = append(*proxies, *proxy)
 	}
 	dedupProxies = nil
 }
 
-func deduplicateTask(p Proxy) {
+func deduplicateTask(p *Proxy) {
 	arg := p.Raw
 	server, serverOk := "", false
 	if arg["type"] == "vless" || arg["type"] == "vmess" {
