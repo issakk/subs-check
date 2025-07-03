@@ -188,6 +188,7 @@ func main() {
 	app.Run()
 }
 func maintask() {
+	startTime := time.Now()
 	proxies := make([]info.Proxy, 0)
 
 	proxy.GetProxies(&proxies)
@@ -282,8 +283,8 @@ func maintask() {
 	// 获取实际保存的节点数量
 	savedProxies, savedCount := saver.SaveConfig(&proxies)
 	saveProxySource(&savedProxies)
-
-	message := fmt.Sprintf("订阅检测处理完成!\n共处理节点数量: %v", savedCount)
+	duration := time.Since(startTime)
+	message := fmt.Sprintf("订阅检测处理完成!\n共处理节点数量: %v\n任务耗时: %.2f分钟", savedCount, duration.Minutes())
 	if err := utils.SendWeworkNotification(message); err != nil {
 		log.Error("发送企业微信通知失败: %v", err)
 	}

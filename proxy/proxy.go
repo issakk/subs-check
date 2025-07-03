@@ -10,7 +10,7 @@ import (
 	"github.com/metacubex/mihomo/adapter"
 )
 
-func NewProxy(raw map[string]any, subUrl string) *info.Proxy {
+func NewProxy(raw map[string]any) *info.Proxy {
 	proxy, err := adapter.ParseProxy(raw)
 	if err != nil {
 		return nil
@@ -20,7 +20,6 @@ func NewProxy(raw map[string]any, subUrl string) *info.Proxy {
 
 	return &info.Proxy{
 		Raw:    raw,
-		SubUrl: subUrl,
 		Ctx:    ctx,
 		Cancel: cancel,
 		Client: &http.Client{
