@@ -2,3 +2,8 @@ config.yaml
 mihomo.yaml
 *test*
 docker-compose.yml
+.idea/.gitignore
+.idea/modules.xml
+.idea/subs-check.iml
+.idea/vcs.xml
+.gitignore
