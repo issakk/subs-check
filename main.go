@@ -1,11 +1,15 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -298,16 +302,53 @@ func maintask() {
 func saveProxySource(proxies *[]info.Proxy) {
 	execPath := utils.GetExecutablePath()
 	filePath := filepath.Join(execPath, "proxy_source.txt")
-	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	sourceCounts := make(map[string]int)
+
+	// Read existing file
+	file, err := os.OpenFile(filePath, os.O_RDONLY|os.O_CREATE, 0644)
 	if err != nil {
-		log.Error("open proxy source file failed: %v", err)
+		log.Error("open proxy source file for reading failed: %v", err)
+		return
+	}
+
+	reader := bufio.NewReader(file)
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			log.Error("read proxy source file failed: %v", err)
+			return
+		}
+		parts := strings.Split(strings.TrimSpace(line), ",")
+		if len(parts) == 2 {
+			count, err := strconv.Atoi(parts[1])
+			if err == nil {
+				sourceCounts[parts[0]] = count
+			}
+		}
+	}
+	file.Close()
+
+	// Update counts with new proxies
+	for _, proxy := range *proxies {
+		sourceCounts[proxy.SubUrl]++
+	}
+
+	// Write back to the file
+	file, err = os.OpenFile(filePath, os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		log.Error("open proxy source file for writing failed: %v", err)
 		return
 	}
 	defer file.Close()
 
-	for _, proxy := range *proxies {
-		file.WriteString(fmt.Sprintf("Proxy: %s, From: %s\n", proxy.Raw["name"], proxy.SubUrl))
+	writer := bufio.NewWriter(file)
+	for source, count := range sourceCounts {
+		writer.WriteString(fmt.Sprintf("%s,%d\n", source, count))
 	}
+	writer.Flush()
 
 	log.Info("save proxy source success: %s", filePath)
 }
