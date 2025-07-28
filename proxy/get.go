@@ -207,7 +207,7 @@ func ParseYamlProxy(data []byte, proxies *[]info.Proxy, subUrl string) error {
 				log.Debug("Attempting to unmarshal YAML buffer at line %d. Buffer size: %d", lineNum, yamlBuffer.Len())
 				var proxy []map[string]any
 				if err := yaml.Unmarshal(yamlBuffer.Bytes(), &proxy); err != nil {
-					log.Warn("Failed to unmarshal YAML proxy at line %d: %v. Buffer content: %s", lineNum, err, yamlBuffer.String())
+					log.Warn("Failed to unmarshal YAML proxy from sub [%s] at line %d: %v. Buffer content: %s", subUrl, lineNum, err, yamlBuffer.String())
 				} else {
 					log.Debug("Successfully unmarshaled proxy at line %d. Proxy type: %s", lineNum, proxy[0]["type"].(string))
 					if len(config.GlobalConfig.TypeInclude) > 0 {
@@ -240,7 +240,7 @@ func ParseYamlProxy(data []byte, proxies *[]info.Proxy, subUrl string) error {
 		log.Debug("Attempting to unmarshal remaining YAML buffer after loop. Buffer size: %d", yamlBuffer.Len())
 		var proxy []map[string]any
 		if err := yaml.Unmarshal(yamlBuffer.Bytes(), &proxy); err != nil {
-			log.Warn("Failed to unmarshal remaining YAML proxy: %v. Buffer content: %s", err, yamlBuffer.String())
+			log.Warn("Failed to unmarshal remaining YAML proxy from sub [%s]: %v. Buffer content: %s", subUrl, err, yamlBuffer.String())
 		} else {
 			log.Debug("Successfully unmarshaled remaining proxy. Proxy type: %s", proxy[0]["type"].(string))
 			if len(config.GlobalConfig.TypeInclude) > 0 {
