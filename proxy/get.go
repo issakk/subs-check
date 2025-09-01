@@ -33,31 +33,47 @@ func GetProxies(proxies *[]info.Proxy) {
 	var wg sync.WaitGroup
 	for _, subUrl := range config.GlobalConfig.SubUrls {
 		wg.Add(1)
+		// copy subUrl to a new variable
+		subUrl := subUrl
 		pool.Submit(func() {
 			defer wg.Done()
-			taskGetProxies(subUrl, proxies)
+			processedUrl := replaceDateTimePlaceholders(subUrl)
+			taskGetProxies(processedUrl, proxies)
 		})
 	}
 	wg.Wait()
+}
+
+func replaceDateTimePlaceholders(url string) string {
+	now := time.Now()
+	r := strings.NewReplacer(
+		"{YYYY}", now.Format("2006"),
+		"{MM}", now.Format("01"),
+		"{DD}", now.Format("02"),
+		"{HH}", now.Format("15"),
+		"{mm}", now.Format("04"),
+		"{ss}", now.Format("05"),
+	)
+	return r.Replace(url)
 }
 
 func taskGetProxies(args string, proxiesInfo *[]info.Proxy) {
 
 	data, err := getDateFromSubs(args)
 	if err != nil {
-		log.Warn("subscription link: %s get data failed: %v", args, err)
+		log.Warn("subscription link [%s] get data failed: %v", args, err)
 		return
 	}
 	if IsYaml(data, args) {
 		err := ParseYamlProxy(data, proxiesInfo, args)
 		if err != nil {
-			log.Warn("subscription link: %s has no proxies", args)
+			log.Warn("subscription link [%s] has no proxies", args)
 			return
 		}
 	} else {
 		reg, _ := regexp.Compile(`^(ssr://|ss://|vmess://|trojan://|vless://|hysteria://|hy2://|hysteria2://)`)
 		if !reg.Match(data) {
-			log.Debug("subscription link: %s is not a v2ray subscription link, attempting to decode the subscription link using base64", args)
+			log.Debug("subscription link [%s] is not a v2ray subscription link, attempting to decode the subscription link using base64", args)
 			data = []byte(parser.DecodeBase64(string(data)))
 		}
 		if reg.Match(data) {
@@ -117,7 +133,7 @@ func getDateFromSubs(subUrl string) ([]byte, error) {
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != 200 {
-			lastErr = fmt.Errorf("subscription link: %s returned status code: %d", subUrl, resp.StatusCode)
+			lastErr = fmt.Errorf("subscription link [%s] returned status code: %d", subUrl, resp.StatusCode)
 			continue
 		}
 
@@ -148,12 +164,12 @@ func IsYaml(data []byte, subUrl string) bool {
 
 	decodedData := parser.DecodeBase64(string(data))
 	if reg.MatchString(decodedData) {
-		log.Debug("subscription link: %s is a v2ray subscription link", subUrl)
+		log.Debug("subscription link [%s] is a v2ray subscription link", subUrl)
 		return false
 	}
 
 	if bytes.Contains(data, []byte("proxies:")) {
-		log.Debug("subscription link: %s is a yaml file", subUrl)
+		log.Debug("subscription link [%s] is a yaml file", subUrl)
 		return true
 	}
 	return false
