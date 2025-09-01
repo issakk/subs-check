@@ -179,7 +179,7 @@ func (app *App) Run() {
 	if config.GlobalConfig.Check.Cron != "" {
 		log.Info("cron expression detected, starting cron job")
 		app.c = cron.New()
-		_, err := app.c.AddFunc(config.GlobalConfig.Check.Cron, func() {
+		entryID, err := app.c.AddFunc(config.GlobalConfig.Check.Cron, func() {
 			maintask()
 			utils.UpdateSubs()
 		})
@@ -188,8 +188,11 @@ func (app *App) Run() {
 			return
 		}
 		app.c.Start()
+		nextCheck := app.c.Entry(entryID).Next
+		log.Info("next check time: %v", nextCheck.Format("2006-01-02 15:04:05"))
 		select {} // Block forever
 	} else {
+		log.Info("start task with interval: %d minutes", app.interval)
 		for {
 			maintask()
 			utils.UpdateSubs()
