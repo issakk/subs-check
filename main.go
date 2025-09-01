@@ -178,7 +178,8 @@ func (app *App) Run() {
 
 	if len(config.GlobalConfig.Check.Cron) > 0 {
 		log.Info("cron expressions detected, starting cron jobs")
-		app.c = cron.New()
+		parser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
+		app.c = cron.New(cron.WithParser(parser))
 		for _, cronExpr := range config.GlobalConfig.Check.Cron {
 			entryID, err := app.c.AddFunc(cronExpr, func() {
 				maintask()
