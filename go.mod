@@ -7,6 +7,7 @@ require (
 	github.com/fsnotify/fsnotify v1.8.0
 	github.com/metacubex/mihomo v1.19.2
 	github.com/panjf2000/ants/v2 v2.11.1
+	github.com/robfig/cron/v3 v3.0.1
 	github.com/spf13/cast v1.7.1
 	golang.org/x/net v0.35.0
 	gopkg.in/yaml.v3 v3.0.1

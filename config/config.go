@@ -28,6 +28,7 @@ type CheckConfig struct {
 	Concurrent           int      `yaml:"concurrent"`
 	Items                []string `yaml:"items"`
 	Interval             int      `yaml:"interval"`
+	Cron                 string   `yaml:"cron"`
 	Timeout              int      `yaml:"timeout"`
 	MinSpeed             int      `yaml:"min-speed"`
 	QualityLevel         int      `yaml:"quality-level"`

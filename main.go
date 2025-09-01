@@ -23,6 +23,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	mihomoLog "github.com/metacubex/mihomo/log"
 	"github.com/panjf2000/ants/v2"
+	"github.com/robfig/cron/v3"
 	"gopkg.in/yaml.v3"
 )
 
@@ -32,6 +33,7 @@ type App struct {
 	interval    int
 	watcher     *fsnotify.Watcher
 	reloadTimer *time.Timer
+	c           *cron.Cron
 }
 
 func NewApp() *App {
@@ -169,14 +171,32 @@ func (app *App) Run() {
 		if app.reloadTimer != nil {
 			app.reloadTimer.Stop()
 		}
+		if app.c != nil {
+			app.c.Stop()
+		}
 	}()
 
-	for {
-		maintask()
-		utils.UpdateSubs()
-		nextCheck := time.Now().Add(time.Duration(app.interval) * time.Minute)
-		log.Info("next check time: %v", nextCheck.Format("2006-01-02 15:04:05"))
-		time.Sleep(time.Duration(app.interval) * time.Minute)
+	if config.GlobalConfig.Check.Cron != "" {
+		log.Info("cron expression detected, starting cron job")
+		app.c = cron.New()
+		_, err := app.c.AddFunc(config.GlobalConfig.Check.Cron, func() {
+			maintask()
+			utils.UpdateSubs()
+		})
+		if err != nil {
+			log.Error("add cron job failed: %v", err)
+			return
+		}
+		app.c.Start()
+		select {} // Block forever
+	} else {
+		for {
+			maintask()
+			utils.UpdateSubs()
+			nextCheck := time.Now().Add(time.Duration(app.interval) * time.Minute)
+			log.Info("next check time: %v", nextCheck.Format("2006-01-02 15:04:05"))
+			time.Sleep(time.Duration(app.interval) * time.Minute)
+		}
 	}
 }
 
