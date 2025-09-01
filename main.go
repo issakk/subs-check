@@ -180,6 +180,13 @@ func (app *App) Run() {
 		log.Info("cron expressions detected, starting cron jobs")
 		parser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
 		app.c = cron.New(cron.WithParser(parser))
+
+		type cronJob struct {
+			ID   cron.EntryID
+			Expr string
+		}
+		var cronJobs []cronJob
+
 		for _, cronExpr := range config.GlobalConfig.Check.Cron {
 			entryID, err := app.c.AddFunc(cronExpr, func() {
 				maintask()
@@ -189,10 +196,16 @@ func (app *App) Run() {
 				log.Error("add cron job failed for expression '%s': %v", cronExpr, err)
 				continue
 			}
-			nextCheck := app.c.Entry(entryID).Next
-			log.Info("cron job added with expression '%s', next check time: %v", cronExpr, nextCheck.Format("2006-01-02 15:04:05"))
+			cronJobs = append(cronJobs, cronJob{ID: entryID, Expr: cronExpr})
 		}
+
 		app.c.Start()
+
+		for _, job := range cronJobs {
+			nextCheck := app.c.Entry(job.ID).Next
+			log.Info("cron job added with expression '%s', next check time: %v", job.Expr, nextCheck.Format("2006-01-02 15:04:05"))
+		}
+
 		select {} // Block forever
 	} else {
 		log.Info("start task with interval: %d minutes", app.interval)
