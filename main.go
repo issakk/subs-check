@@ -192,9 +192,9 @@ func (app *App) Run() {
 			var entryID cron.EntryID
 			var err error
 			entryID, err = app.c.AddFunc(expr, func() {
-				maintask()
-				utils.UpdateSubs()
 				nextTime := app.c.Entry(entryID).Next
+				maintask(nextTime)
+				utils.UpdateSubs()
 				log.Info("cron job with expression '%s' finished, next check time: %v", expr, nextTime.Format("2006-01-02 15:04:05"))
 			})
 			if err != nil {
@@ -215,9 +215,9 @@ func (app *App) Run() {
 	} else {
 		log.Info("start task with interval: %d minutes", app.interval)
 		for {
-			maintask()
-			utils.UpdateSubs()
 			nextCheck := time.Now().Add(time.Duration(app.interval) * time.Minute)
+			maintask(nextCheck)
+			utils.UpdateSubs()
 			log.Info("next check time: %v", nextCheck.Format("2006-01-02 15:04:05"))
 			time.Sleep(time.Duration(app.interval) * time.Minute)
 		}
@@ -235,7 +235,7 @@ func main() {
 
 	app.Run()
 }
-func maintask() {
+func maintask(nextCheck time.Time) {
 	startTime := time.Now()
 	proxies := make([]info.Proxy, 0)
 
@@ -332,7 +332,7 @@ func maintask() {
 	savedProxies, savedCount := saver.SaveConfig(&proxies)
 	saveProxySource(&savedProxies)
 	duration := time.Since(startTime)
-	message := fmt.Sprintf("订阅检测处理完成!\n共处理节点数量: %v\n任务耗时: %.2f分钟", savedCount, duration.Minutes())
+	message := fmt.Sprintf("订阅检测处理完成!\n共处理节点数量: %v\n任务耗时: %.2f分钟\n下次任务时间: %s", savedCount, duration.Minutes(), nextCheck.Format("2006-01-02 15:04:05"))
 	if err := utils.SendWeworkNotification(message); err != nil {
 		log.Error("发送企业微信通知失败: %v", err)
 	}
