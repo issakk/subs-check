@@ -188,15 +188,20 @@ func (app *App) Run() {
 		var cronJobs []cronJob
 
 		for _, cronExpr := range config.GlobalConfig.Check.Cron {
-			entryID, err := app.c.AddFunc(cronExpr, func() {
+			expr := cronExpr // capture loop variable
+			var entryID cron.EntryID
+			var err error
+			entryID, err = app.c.AddFunc(expr, func() {
 				maintask()
 				utils.UpdateSubs()
+				nextTime := app.c.Entry(entryID).Next
+				log.Info("cron job with expression '%s' finished, next check time: %v", expr, nextTime.Format("2006-01-02 15:04:05"))
 			})
 			if err != nil {
-				log.Error("add cron job failed for expression '%s': %v", cronExpr, err)
+				log.Error("add cron job failed for expression '%s': %v", expr, err)
 				continue
 			}
-			cronJobs = append(cronJobs, cronJob{ID: entryID, Expr: cronExpr})
+			cronJobs = append(cronJobs, cronJob{ID: entryID, Expr: expr})
 		}
 
 		app.c.Start()
