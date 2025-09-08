@@ -176,6 +176,11 @@ func (app *App) Run() {
 		}
 	}()
 
+	if config.GlobalConfig.Check.RunAtStartup {
+		log.Info("run at startup is enabled, starting task")
+		maintask(time.Now())
+	}
+
 	if len(config.GlobalConfig.Check.Cron) > 0 {
 		log.Info("cron expressions detected, starting cron jobs")
 		parser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)

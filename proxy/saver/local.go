@@ -50,9 +50,16 @@ func (ls *LocalSaver) Save(yamlData []byte, filename string) error {
 		return err
 	}
 
-	filepath := filepath.Join(ls.outputPath, filename)
+	filePath := filepath.Join(ls.outputPath, filename)
 
-	if err := os.WriteFile(filepath, yamlData, fileMode); err != nil {
+	// if file exists, rename it to filename_old.yaml
+	if _, err := os.Stat(filePath); err == nil {
+		if err := os.Rename(filePath, ls.outputPath+string(os.PathSeparator)+filename+"_old.yaml"); err != nil {
+			return fmt.Errorf("rename old file failed: %w", err)
+		}
+	}
+
+	if err := os.WriteFile(filePath, yamlData, fileMode); err != nil {
 		return fmt.Errorf("write file failed: %w", err)
 	}
 
