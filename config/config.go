@@ -29,6 +29,7 @@ type CheckConfig struct {
 	Items                []string `yaml:"items"`
 	Interval             int      `yaml:"interval"`
 	Cron                 []string `yaml:"cron"`
+	RunAtStartup         bool     `yaml:"run-at-startup"`
 	Timeout              int      `yaml:"timeout"`
 	MinSpeed             int      `yaml:"min-speed"`
 	QualityLevel         int      `yaml:"quality-level"`
