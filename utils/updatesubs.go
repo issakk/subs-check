@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/bestruirui/bestsub/config"
 	"github.com/bestruirui/bestsub/utils/log"
@@ -20,8 +22,8 @@ type providersResponse struct {
 	} `json:"providers"`
 }
 
-func makeRequest(method, url string) ([]byte, error) {
-	req, err := http.NewRequest(method, url, nil)
+func makeRequest(method, requestURL string) ([]byte, error) {
+	req, err := http.NewRequest(method, requestURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create request failed: %w", err)
 	}
@@ -104,12 +106,21 @@ func getNeedUpdateNames() ([]string, error) {
 }
 
 func updateSubs(names []string) error {
+	var failed []string
+
 	for _, name := range names {
-		url := fmt.Sprintf("%s/providers/proxies/%s", config.GlobalConfig.MihomoApiUrl, name)
+		url := fmt.Sprintf("%s/providers/proxies/%s", config.GlobalConfig.MihomoApiUrl, url.PathEscape(name))
 		if _, err := makeRequest(http.MethodPut, url); err != nil {
 			log.Error("update sub %s failed: %v", name, err)
+			failed = append(failed, name)
+			continue
 		}
 		log.Info("update sub %s success", name)
 	}
+
+	if len(failed) > 0 {
+		return fmt.Errorf("failed to update providers: %s", strings.Join(failed, ", "))
+	}
+
 	return nil
 }

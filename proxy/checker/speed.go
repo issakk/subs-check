@@ -14,9 +14,12 @@ import (
 )
 
 func (c *Checker) CheckSpeed() {
-
 	if config.GlobalConfig.Check.SpeedSkipName != "" {
-		re := regexp2.MustCompile(config.GlobalConfig.Check.SpeedSkipName, regexp2.None)
+		re, err := regexp2.Compile(config.GlobalConfig.Check.SpeedSkipName, regexp2.None)
+		if err != nil {
+			log.Debug("compile speed skip name failed: %v", err)
+			return
+		}
 		match, err := re.MatchString(c.Proxy.Raw["name"].(string))
 		if err != nil {
 			log.Debug("check speed skip name failed: %v", err)
@@ -34,15 +37,13 @@ func (c *Checker) CheckSpeed() {
 		Transport: c.Proxy.Client.Transport,
 	}
 
-	var startTime time.Time
-	var resp *http.Response
-
 	for _, url := range config.GlobalConfig.Check.SpeedTestUrl {
+		startTime := time.Time{}
 		reqCtx, cancel := context.WithTimeout(c.Proxy.Ctx, time.Duration(config.GlobalConfig.Check.Timeout)*time.Second)
-		defer cancel()
 
 		req, err := http.NewRequestWithContext(reqCtx, "GET", url, nil)
 		if err != nil {
+			cancel()
 			continue
 		}
 
@@ -53,8 +54,9 @@ func (c *Checker) CheckSpeed() {
 		}
 		req = req.WithContext(httptrace.WithClientTrace(req.Context(), trace))
 
-		resp, err = speedClient.Do(req)
+		resp, err := speedClient.Do(req)
 		if err != nil {
+			cancel()
 			continue
 		}
 
@@ -66,8 +68,6 @@ func (c *Checker) CheckSpeed() {
 		}
 
 		copyCtx, copyCancel := context.WithTimeout(c.Proxy.Ctx, time.Duration(config.GlobalConfig.Check.DownloadTimeout)*time.Second)
-		defer copyCancel()
-
 		done := make(chan struct{})
 		go func() {
 			buf := make([]byte, 32*1024)
@@ -94,8 +94,13 @@ func (c *Checker) CheckSpeed() {
 		}
 
 		resp.Body.Close()
+		copyCancel()
+		cancel()
 
 		if totalBytes > 0 {
+			if startTime.IsZero() {
+				startTime = time.Now()
+			}
 			duration := time.Since(startTime).Milliseconds()
 			if duration == 0 {
 				duration = 1

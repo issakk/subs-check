@@ -10,8 +10,10 @@ import (
 )
 
 var (
-	dedupProxies map[string]*Proxy
-	dedupMutex   sync.Mutex
+	dedupProxies   map[string]*Proxy
+	dedupMutex     sync.Mutex
+	dnsCache       map[string]string
+	dnsCacheMutex  sync.Mutex
 )
 
 func addDedupProxy(key string, p *Proxy) {
@@ -25,6 +27,7 @@ func addDedupProxy(key string, p *Proxy) {
 func DeduplicateProxies(proxies *[]Proxy) {
 	var wg sync.WaitGroup
 	dedupProxies = make(map[string]*Proxy)
+	dnsCache = make(map[string]string)
 
 	pool, _ := ants.NewPool(config.GlobalConfig.Check.Concurrent)
 	defer pool.Release()
@@ -40,11 +43,32 @@ func DeduplicateProxies(proxies *[]Proxy) {
 	wg.Wait()
 
 	*proxies = (*proxies)[:0]
-
 	for _, proxy := range dedupProxies {
 		*proxies = append(*proxies, *proxy)
 	}
+
 	dedupProxies = nil
+	dnsCache = nil
+}
+
+func resolveServerKey(server string) string {
+	dnsCacheMutex.Lock()
+	if cached, ok := dnsCache[server]; ok {
+		dnsCacheMutex.Unlock()
+		return cached
+	}
+	dnsCacheMutex.Unlock()
+
+	serverIP, err := net.LookupIP(server)
+	resolved := server
+	if err == nil && len(serverIP) > 0 {
+		resolved = serverIP[0].String()
+	}
+
+	dnsCacheMutex.Lock()
+	dnsCache[server] = resolved
+	dnsCacheMutex.Unlock()
+	return resolved
 }
 
 func deduplicateTask(p *Proxy) {
@@ -63,14 +87,7 @@ func deduplicateTask(p *Proxy) {
 	if !serverOk || !portOk {
 		return
 	}
-	serverip, err := net.LookupIP(server)
-	if err != nil {
-		return
-	}
-	if len(serverip) == 0 {
-		return
-	}
-	key := fmt.Sprintf("%s:%v", serverip[0], port)
 
+	key := fmt.Sprintf("%s:%v", resolveServerKey(server), port)
 	addDedupProxy(key, p)
 }

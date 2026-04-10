@@ -131,13 +131,14 @@ func getDateFromSubs(subUrl string) ([]byte, error) {
 			lastErr = err
 			continue
 		}
-		defer resp.Body.Close()
 		if resp.StatusCode != 200 {
+			resp.Body.Close()
 			lastErr = fmt.Errorf("subscription link [%s] returned status code: %d", subUrl, resp.StatusCode)
 			continue
 		}
 
 		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
 		if err != nil {
 			lastErr = err
 			continue
@@ -174,6 +175,53 @@ func IsYaml(data []byte, subUrl string) bool {
 	}
 	return false
 }
+func appendParsedYamlProxy(proxyData []map[string]any, proxies *[]info.Proxy, subUrl string) {
+	if len(proxyData) == 0 {
+		return
+	}
+
+	proxyType, ok := proxyData[0]["type"].(string)
+	if !ok || proxyType == "" {
+		return
+	}
+
+	if len(config.GlobalConfig.TypeInclude) > 0 {
+		for _, t := range config.GlobalConfig.TypeInclude {
+			if t == proxyType {
+				mihomoProxiesMutex.Lock()
+				*proxies = append(*proxies, info.Proxy{Raw: proxyData[0], SubUrl: subUrl})
+				mihomoProxiesMutex.Unlock()
+				return
+			}
+		}
+		return
+	}
+
+	mihomoProxiesMutex.Lock()
+	*proxies = append(*proxies, info.Proxy{Raw: proxyData[0], SubUrl: subUrl})
+	mihomoProxiesMutex.Unlock()
+}
+
+func flushYamlBuffer(yamlBuffer *bytes.Buffer, proxies *[]info.Proxy, subUrl string, lineNum int, isRemaining bool) {
+	if yamlBuffer.Len() == 0 {
+		return
+	}
+
+	var proxyData []map[string]any
+	if err := yaml.Unmarshal(yamlBuffer.Bytes(), &proxyData); err != nil {
+		if isRemaining {
+			log.Warn("Failed to unmarshal remaining YAML proxy from sub [%s]: %v. Buffer content: %s", subUrl, err, yamlBuffer.String())
+		} else {
+			log.Warn("Failed to unmarshal YAML proxy from sub [%s] at line %d: %v. Buffer content: %s", subUrl, lineNum, err, yamlBuffer.String())
+		}
+		yamlBuffer.Reset()
+		return
+	}
+
+	appendParsedYamlProxy(proxyData, proxies, subUrl)
+	yamlBuffer.Reset()
+}
+
 func ParseYamlProxy(data []byte, proxies *[]info.Proxy, subUrl string) error {
 	log.Debug("Entering ParseYamlProxy for subUrl: %s", subUrl)
 	var inProxiesSection bool
@@ -221,27 +269,7 @@ func ParseYamlProxy(data []byte, proxies *[]info.Proxy, subUrl string) error {
 		if strings.HasPrefix(trimmedLine, "-") && len(line)-len(trimmedLine) == indent {
 			if yamlBuffer.Len() > 0 {
 				log.Debug("Attempting to unmarshal YAML buffer at line %d. Buffer size: %d", lineNum, yamlBuffer.Len())
-				var proxy []map[string]any
-				if err := yaml.Unmarshal(yamlBuffer.Bytes(), &proxy); err != nil {
-					log.Warn("Failed to unmarshal YAML proxy from sub [%s] at line %d: %v. Buffer content: %s", subUrl, lineNum, err, yamlBuffer.String())
-				} else {
-					log.Debug("Successfully unmarshaled proxy at line %d. Proxy type: %s", lineNum, proxy[0]["type"].(string))
-					if len(config.GlobalConfig.TypeInclude) > 0 {
-						for _, t := range config.GlobalConfig.TypeInclude {
-							if t == proxy[0]["type"].(string) {
-								mihomoProxiesMutex.Lock()
-								*proxies = append(*proxies, info.Proxy{Raw: proxy[0], SubUrl: subUrl})
-								mihomoProxiesMutex.Unlock()
-								break
-							}
-						}
-					} else {
-						mihomoProxiesMutex.Lock()
-						*proxies = append(*proxies, info.Proxy{Raw: proxy[0], SubUrl: subUrl})
-						mihomoProxiesMutex.Unlock()
-					}
-				}
-				yamlBuffer.Reset()
+				flushYamlBuffer(&yamlBuffer, proxies, subUrl, lineNum, false)
 				log.Debug("YAML buffer reset.")
 			}
 			yamlBuffer.WriteString(line + "\n")
@@ -254,26 +282,7 @@ func ParseYamlProxy(data []byte, proxies *[]info.Proxy, subUrl string) error {
 
 	if yamlBuffer.Len() > 0 {
 		log.Debug("Attempting to unmarshal remaining YAML buffer after loop. Buffer size: %d", yamlBuffer.Len())
-		var proxy []map[string]any
-		if err := yaml.Unmarshal(yamlBuffer.Bytes(), &proxy); err != nil {
-			log.Warn("Failed to unmarshal remaining YAML proxy from sub [%s]: %v. Buffer content: %s", subUrl, err, yamlBuffer.String())
-		} else {
-			log.Debug("Successfully unmarshaled remaining proxy. Proxy type: %s", proxy[0]["type"].(string))
-			if len(config.GlobalConfig.TypeInclude) > 0 {
-				for _, t := range config.GlobalConfig.TypeInclude {
-					if t == proxy[0]["type"].(string) {
-						mihomoProxiesMutex.Lock()
-						*proxies = append(*proxies, info.Proxy{Raw: proxy[0], SubUrl: subUrl})
-						mihomoProxiesMutex.Unlock()
-						break
-					}
-				}
-			} else {
-				mihomoProxiesMutex.Lock()
-				*proxies = append(*proxies, info.Proxy{Raw: proxy[0], SubUrl: subUrl})
-				mihomoProxiesMutex.Unlock()
-			}
-		}
+		flushYamlBuffer(&yamlBuffer, proxies, subUrl, lineNum, true)
 	}
 	log.Debug("Exiting ParseYamlProxy for subUrl: %s", subUrl)
 	return nil

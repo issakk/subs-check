@@ -36,6 +36,8 @@ type App struct {
 	c           *cron.Cron
 }
 
+var proxySourceFileMutex sync.Mutex
+
 func NewApp() *App {
 	configPath := flag.String("f", "", "config file path")
 	renamePath := flag.String("r", "", "rename file path")
@@ -122,10 +124,17 @@ func (app *App) initConfigWatcher() error {
 	}
 
 	app.watcher = watcher
-	app.reloadTimer = time.NewTimer(0)
-	<-app.reloadTimer.C
 
 	go func() {
+		var reloadTimer *time.Timer
+		var reloadC <-chan time.Time
+
+		defer func() {
+			if reloadTimer != nil {
+				reloadTimer.Stop()
+			}
+		}()
+
 		for {
 			select {
 			case event, ok := <-watcher.Events:
@@ -133,21 +142,28 @@ func (app *App) initConfigWatcher() error {
 					return
 				}
 				if event.Op&fsnotify.Write == fsnotify.Write {
-					if app.reloadTimer != nil {
-						app.reloadTimer.Stop()
-					}
-					app.reloadTimer.Reset(100 * time.Millisecond)
-
-					go func() {
-						<-app.reloadTimer.C
-						log.Info("config file changed, reloading")
-						if err := app.loadConfig(); err != nil {
-							log.Error("reload config file failed: %v", err)
-							return
+					if reloadTimer == nil {
+						reloadTimer = time.NewTimer(100 * time.Millisecond)
+						reloadC = reloadTimer.C
+					} else {
+						if !reloadTimer.Stop() {
+							select {
+							case <-reloadTimer.C:
+							default:
+							}
 						}
-						app.interval = config.GlobalConfig.Check.Interval
-					}()
+						reloadTimer.Reset(100 * time.Millisecond)
+					}
 				}
+			case <-reloadC:
+				log.Info("config file changed, reloading")
+				if err := app.loadConfig(); err != nil {
+					log.Error("reload config file failed: %v", err)
+				} else {
+					app.interval = config.GlobalConfig.Check.Interval
+				}
+				reloadC = nil
+				reloadTimer = nil
 			case err, ok := <-watcher.Errors:
 				if !ok {
 					return
@@ -299,37 +315,39 @@ func maintask(nextCheck time.Time) {
 		log.Info("start speed test concurrent %d", config.GlobalConfig.Check.SpeedCheckConcurrent)
 		pool.Release()
 		pool, _ = ants.NewPool(config.GlobalConfig.Check.SpeedCheckConcurrent)
-		var speedCount int
 		for i := 0; i < len(proxies); i++ {
-			if speedCount < config.GlobalConfig.Check.SpeedCount {
-				wg.Add(1)
-				i := i
-				pool.Submit(func() {
-					defer wg.Done()
-					proxySpeedTask(&proxies[i])
-					if proxies[i].Info.Speed > config.GlobalConfig.Check.MinSpeed {
-						speedCount++
-						var speedStr string
-						switch {
-						case proxies[i].Info.Speed < 1024:
-							speedStr = fmt.Sprintf("%d KB/s", proxies[i].Info.Speed)
-						case proxies[i].Info.Speed < 1024*1024:
-							speedStr = fmt.Sprintf("%.2f MB/s", float64(proxies[i].Info.Speed)/1024)
-						default:
-							speedStr = fmt.Sprintf("%.2f GB/s", float64(proxies[i].Info.Speed)/(1024*1024))
-						}
-						proxies[i].Raw["name"] = fmt.Sprintf("%v | ⬇️ %s", proxies[i].Raw["name"], speedStr)
-						log.Debug("speed test success: %v", proxies[i].Raw["name"])
-					} else if !config.GlobalConfig.Check.SpeedSave {
-						proxies[i].Info.SpeedSkip = true
-						log.Debug("speed skip: %v", proxies[i].Raw["name"])
-					}
-				})
-			} else if !config.GlobalConfig.Check.SpeedSave {
-				proxies[i].Info.SpeedSkip = true
-			}
+			wg.Add(1)
+			i := i
+			pool.Submit(func() {
+				defer wg.Done()
+				proxySpeedTask(&proxies[i])
+			})
 		}
 		wg.Wait()
+
+		speedCount := 0
+		for i := 0; i < len(proxies); i++ {
+			if proxies[i].Info.Speed > config.GlobalConfig.Check.MinSpeed && speedCount < config.GlobalConfig.Check.SpeedCount {
+				speedCount++
+				var speedStr string
+				switch {
+				case proxies[i].Info.Speed < 1024:
+					speedStr = fmt.Sprintf("%d KB/s", proxies[i].Info.Speed)
+				case proxies[i].Info.Speed < 1024*1024:
+					speedStr = fmt.Sprintf("%.2f MB/s", float64(proxies[i].Info.Speed)/1024)
+				default:
+					speedStr = fmt.Sprintf("%.2f GB/s", float64(proxies[i].Info.Speed)/(1024*1024))
+				}
+				proxies[i].Raw["name"] = fmt.Sprintf("%v | ⬇️ %s", proxies[i].Raw["name"], speedStr)
+				log.Debug("speed test success: %v", proxies[i].Raw["name"])
+				continue
+			}
+
+			if !config.GlobalConfig.Check.SpeedSave {
+				proxies[i].Info.SpeedSkip = true
+				log.Debug("speed skip: %v", proxies[i].Raw["name"])
+			}
+		}
 		log.Info("end speed test")
 	}
 
@@ -349,11 +367,14 @@ func maintask(nextCheck time.Time) {
 }
 
 func saveProxySource(proxies *[]info.Proxy) {
+	proxySourceFileMutex.Lock()
+	defer proxySourceFileMutex.Unlock()
+
 	execPath := utils.GetExecutablePath()
 	filePath := filepath.Join(execPath, "proxy_source.txt")
+	tempFilePath := filePath + ".tmp"
 	sourceCounts := make(map[string]int)
 
-	// Read existing file
 	file, err := os.OpenFile(filePath, os.O_RDONLY|os.O_CREATE, 0644)
 	if err != nil {
 		log.Error("open proxy source file for reading failed: %v", err)
@@ -367,6 +388,7 @@ func saveProxySource(proxies *[]info.Proxy) {
 			if err == io.EOF {
 				break
 			}
+			file.Close()
 			log.Error("read proxy source file failed: %v", err)
 			return
 		}
@@ -378,26 +400,48 @@ func saveProxySource(proxies *[]info.Proxy) {
 			}
 		}
 	}
-	file.Close()
+	if err := file.Close(); err != nil {
+		log.Error("close proxy source file failed: %v", err)
+		return
+	}
 
-	// Update counts with new proxies
 	for _, proxy := range *proxies {
 		sourceCounts[proxy.SubUrl]++
 	}
 
-	// Write back to the file
-	file, err = os.OpenFile(filePath, os.O_WRONLY|os.O_TRUNC, 0644)
+	sources := make([]string, 0, len(sourceCounts))
+	for source := range sourceCounts {
+		sources = append(sources, source)
+	}
+	sort.Strings(sources)
+
+	file, err = os.OpenFile(tempFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
-		log.Error("open proxy source file for writing failed: %v", err)
+		log.Error("open proxy source temp file for writing failed: %v", err)
 		return
 	}
-	defer file.Close()
 
 	writer := bufio.NewWriter(file)
-	for source, count := range sourceCounts {
-		writer.WriteString(fmt.Sprintf("%s,%d\n", source, count))
+	for _, source := range sources {
+		if _, err := writer.WriteString(fmt.Sprintf("%s,%d\n", source, sourceCounts[source])); err != nil {
+			file.Close()
+			log.Error("write proxy source file failed: %v", err)
+			return
+		}
 	}
-	writer.Flush()
+	if err := writer.Flush(); err != nil {
+		file.Close()
+		log.Error("flush proxy source file failed: %v", err)
+		return
+	}
+	if err := file.Close(); err != nil {
+		log.Error("close proxy source temp file failed: %v", err)
+		return
+	}
+	if err := os.Rename(tempFilePath, filePath); err != nil {
+		log.Error("replace proxy source file failed: %v", err)
+		return
+	}
 
 	log.Info("save proxy source success: %s", filePath)
 }

@@ -11,9 +11,10 @@ import (
 )
 
 type ProxyCategory struct {
-	Name    string
-	Proxies []map[string]any
-	Filter  func(result info.Proxy) bool
+	Name       string
+	Proxies    []map[string]any
+	SourceData []info.Proxy
+	Filter     func(result info.Proxy) bool
 }
 
 type ConfigSaver struct {
@@ -28,45 +29,48 @@ func NewConfigSaver(results *[]info.Proxy) *ConfigSaver {
 		saveMethods: chooseSaveMethods(),
 		categories: []ProxyCategory{
 			{
-				Name:    "all.yaml",
-				Proxies: make([]map[string]any, 0),
+				Name:       "all.yaml",
+				Proxies:    make([]map[string]any, 0),
+				SourceData: make([]info.Proxy, 0),
 				Filter: func(result info.Proxy) bool {
 					if utils.Contains(config.GlobalConfig.Check.Items, "speed") {
 						if result.Info.Speed > config.GlobalConfig.Check.MinSpeed || result.Info.SpeedSkip {
 							return true
-						} else {
-							log.Debug("proxy %s speed %d does not meet the condition, skipping", result.Raw["name"], result.Info.Speed)
-							return false
 						}
+						log.Debug("proxy %s speed %d does not meet the condition, skipping", result.Raw["name"], result.Info.Speed)
+						return false
 					}
 					return result.Info.Alive
 				},
 			},
 			{
-				Name:    "openai.yaml",
-				Proxies: make([]map[string]any, 0),
-				Filter:  func(result info.Proxy) bool { return result.Info.Unlock.Chatgpt },
+				Name:       "openai.yaml",
+				Proxies:    make([]map[string]any, 0),
+				SourceData: make([]info.Proxy, 0),
+				Filter:     func(result info.Proxy) bool { return result.Info.Unlock.Chatgpt },
 			},
 			{
-				Name:    "youtube.yaml",
-				Proxies: make([]map[string]any, 0),
-				Filter:  func(result info.Proxy) bool { return result.Info.Unlock.Youtube },
+				Name:       "youtube.yaml",
+				Proxies:    make([]map[string]any, 0),
+				SourceData: make([]info.Proxy, 0),
+				Filter:     func(result info.Proxy) bool { return result.Info.Unlock.Youtube },
 			},
 			{
-				Name:    "netflix.yaml",
-				Proxies: make([]map[string]any, 0),
-				Filter:  func(result info.Proxy) bool { return result.Info.Unlock.Netflix },
+				Name:       "netflix.yaml",
+				Proxies:    make([]map[string]any, 0),
+				SourceData: make([]info.Proxy, 0),
+				Filter:     func(result info.Proxy) bool { return result.Info.Unlock.Netflix },
 			},
 			{
-				Name:    "disney.yaml",
-				Proxies: make([]map[string]any, 0),
-				Filter:  func(result info.Proxy) bool { return result.Info.Unlock.Disney },
+				Name:       "disney.yaml",
+				Proxies:    make([]map[string]any, 0),
+				SourceData: make([]info.Proxy, 0),
+				Filter:     func(result info.Proxy) bool { return result.Info.Unlock.Disney },
 			},
 		},
 	}
 }
 
-// 修改函数签名，返回保存的节点数量
 func SaveConfig(results *[]info.Proxy) ([]info.Proxy, int) {
 	if len(config.GlobalConfig.Save.BeforeSaveDo) > 0 {
 		if err := BeforeSaveDo(results); err != nil {
@@ -80,22 +84,10 @@ func SaveConfig(results *[]info.Proxy) ([]info.Proxy, int) {
 	if err := saver.Save(); err != nil {
 		log.Error("save config failed: %v", err)
 	} else {
-		// 获取 all.yaml 中的节点数量作为最终保存的数量
 		for _, category := range saver.categories {
 			if category.Name == "all.yaml" {
 				savedCount = len(category.Proxies)
-				for _, pRaw := range category.Proxies {
-					// Find the original info.Proxy object from the initial results slice
-					// This is a simplified approach, assuming Raw["name"] is unique enough
-					// A more robust solution might involve passing the original info.Proxy objects
-					// through the categorization process, or adding a unique ID to info.Proxy.
-					for _, originalProxy := range *results {
-						if originalProxy.Raw["name"] == pRaw["name"] {
-							savedProxies = append(savedProxies, originalProxy)
-							break
-						}
-					}
-				}
+				savedProxies = append(savedProxies, category.SourceData...)
 				break
 			}
 		}
@@ -128,6 +120,7 @@ func (cs *ConfigSaver) categorizeProxies() {
 		for i := range cs.categories {
 			if cs.categories[i].Filter(result) {
 				cs.categories[i].Proxies = append(cs.categories[i].Proxies, result.Raw)
+				cs.categories[i].SourceData = append(cs.categories[i].SourceData, result)
 			}
 		}
 	}
@@ -158,7 +151,6 @@ func (cs *ConfigSaver) saveCategory(category ProxyCategory) error {
 func chooseSaveMethods() []func([]byte, string) error {
 	methods := make([]func([]byte, string) error, 0)
 
-	// 遍历配置的保存方法
 	for _, methodName := range config.GlobalConfig.Save.Method {
 		switch methodName {
 		case "r2":
