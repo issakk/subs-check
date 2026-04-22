@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"flag"
 	"fmt"
 	"io"
@@ -11,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/bestruirui/bestsub/config"
@@ -312,30 +314,33 @@ func maintask(nextCheck time.Time) {
 	log.Info("check end %v proxies", len(proxies))
 
 	if utils.Contains(config.GlobalConfig.Check.Items, "speed") {
-		log.Info("start speed test concurrent %d, target count: %d", config.GlobalConfig.Check.SpeedCheckConcurrent, config.GlobalConfig.Check.SpeedCount)
+		log.Info("start speed test concurrent %d, all proxies, target count: %d", config.GlobalConfig.Check.SpeedCheckConcurrent, config.GlobalConfig.Check.SpeedCount)
 		pool.Release()
 		pool, _ = ants.NewPool(config.GlobalConfig.Check.SpeedCheckConcurrent)
 
-		// 只提交前 speed-count 个节点测速
-		submitCount := config.GlobalConfig.Check.SpeedCount
-		if submitCount > len(proxies) {
-			submitCount = len(proxies)
-		}
-		for i := 0; i < submitCount; i++ {
+		// 全部节点测速，达标 speed-count 后取消剩余
+		speedCtx, speedCancel := context.WithCancel(context.Background())
+		var passedCount int32
+
+		for i := 0; i < len(proxies); i++ {
 			wg.Add(1)
-			i := i
+			idx := i
 			pool.Submit(func() {
 				defer wg.Done()
-				proxySpeedTask(&proxies[i])
+				if atomic.LoadInt32(&passedCount) >= int32(config.GlobalConfig.Check.SpeedCount) {
+					return
+				}
+				proxySpeedCtxTask(&proxies[idx], speedCtx, speedCancel, &passedCount)
 			})
 		}
 		wg.Wait()
+		speedCancel()
 
-		// 统计达标数量并格式化名称
-		speedCount := 0
+		// 格式化达标节点名称，标记不达标节点
+		passed := 0
 		for i := 0; i < len(proxies); i++ {
-			if proxies[i].Info.Speed > config.GlobalConfig.Check.MinSpeed && speedCount < config.GlobalConfig.Check.SpeedCount {
-				speedCount++
+			if proxies[i].Info.Speed > config.GlobalConfig.Check.MinSpeed && passed < config.GlobalConfig.Check.SpeedCount {
+				passed++
 				var speedStr string
 				switch {
 				case proxies[i].Info.Speed < 1024:
@@ -346,15 +351,13 @@ func maintask(nextCheck time.Time) {
 					speedStr = fmt.Sprintf("%.2f GB/s", float64(proxies[i].Info.Speed)/(1024*1024))
 				}
 				proxies[i].Raw["name"] = fmt.Sprintf("%v | ⬇️ %s", proxies[i].Raw["name"], speedStr)
-				log.Debug("speed test success: %v", proxies[i].Raw["name"])
 			} else {
 				if !config.GlobalConfig.Check.SpeedSave {
 					proxies[i].Info.SpeedSkip = true
-					log.Debug("speed skip: %v", proxies[i].Raw["name"])
 				}
 			}
 		}
-		log.Info("end speed test, passed: %d/%d", speedCount, config.GlobalConfig.Check.SpeedCount)
+		log.Info("end speed test, passed: %d/%d", passed, config.GlobalConfig.Check.SpeedCount)
 	}
 
 	// 获取实际保存的节点数量
@@ -500,15 +503,23 @@ func proxyCheckTask(proxy *info.Proxy) {
 	}
 
 }
-func proxySpeedTask(proxy *info.Proxy) {
-	if proxy.New() != nil {
+
+func proxySpeedCtxTask(p *info.Proxy, ctx context.Context, cancel context.CancelFunc, passedCount *int32) {
+	if p.New() != nil {
 		return
 	}
-	defer proxy.Close()
-	checker := checker.NewChecker(proxy)
-	defer checker.Close()
-	checker.CheckSpeed()
+	defer p.Close()
 
+	checker := checker.NewChecker(p)
+	defer checker.CheckSpeed()
+	defer checker.Close()
+
+	// 测速后检查是否达标
+	if p.Info.Speed > config.GlobalConfig.Check.MinSpeed {
+		if atomic.AddInt32(passedCount, 1) == int32(config.GlobalConfig.Check.SpeedCount) {
+			cancel()
+		}
+	}
 }
 
 var version string
