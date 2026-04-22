@@ -511,8 +511,8 @@ func proxySpeedCtxTask(p *info.Proxy, ctx context.Context, cancel context.Cancel
 	defer p.Close()
 
 	checker := checker.NewChecker(p)
-	defer checker.CheckSpeed()
 	defer checker.Close()
+	checker.CheckSpeed()
 
 	// 测速后检查是否达标
 	if p.Info.Speed > config.GlobalConfig.Check.MinSpeed {
