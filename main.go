@@ -312,10 +312,16 @@ func maintask(nextCheck time.Time) {
 	log.Info("check end %v proxies", len(proxies))
 
 	if utils.Contains(config.GlobalConfig.Check.Items, "speed") {
-		log.Info("start speed test concurrent %d", config.GlobalConfig.Check.SpeedCheckConcurrent)
+		log.Info("start speed test concurrent %d, target count: %d", config.GlobalConfig.Check.SpeedCheckConcurrent, config.GlobalConfig.Check.SpeedCount)
 		pool.Release()
 		pool, _ = ants.NewPool(config.GlobalConfig.Check.SpeedCheckConcurrent)
-		for i := 0; i < len(proxies); i++ {
+
+		// 只提交前 speed-count 个节点测速
+		submitCount := config.GlobalConfig.Check.SpeedCount
+		if submitCount > len(proxies) {
+			submitCount = len(proxies)
+		}
+		for i := 0; i < submitCount; i++ {
 			wg.Add(1)
 			i := i
 			pool.Submit(func() {
@@ -325,6 +331,7 @@ func maintask(nextCheck time.Time) {
 		}
 		wg.Wait()
 
+		// 统计达标数量并格式化名称
 		speedCount := 0
 		for i := 0; i < len(proxies); i++ {
 			if proxies[i].Info.Speed > config.GlobalConfig.Check.MinSpeed && speedCount < config.GlobalConfig.Check.SpeedCount {
@@ -340,15 +347,14 @@ func maintask(nextCheck time.Time) {
 				}
 				proxies[i].Raw["name"] = fmt.Sprintf("%v | ⬇️ %s", proxies[i].Raw["name"], speedStr)
 				log.Debug("speed test success: %v", proxies[i].Raw["name"])
-				continue
-			}
-
-			if !config.GlobalConfig.Check.SpeedSave {
-				proxies[i].Info.SpeedSkip = true
-				log.Debug("speed skip: %v", proxies[i].Raw["name"])
+			} else {
+				if !config.GlobalConfig.Check.SpeedSave {
+					proxies[i].Info.SpeedSkip = true
+					log.Debug("speed skip: %v", proxies[i].Raw["name"])
+				}
 			}
 		}
-		log.Info("end speed test")
+		log.Info("end speed test, passed: %d/%d", speedCount, config.GlobalConfig.Check.SpeedCount)
 	}
 
 	// 获取实际保存的节点数量
