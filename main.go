@@ -465,11 +465,18 @@ func proxyCheckTask(proxy *info.Proxy) {
 	defer checker.Close()
 	aliveCount := 0
 	totalDelay := uint16(0)
+	consecutiveFailures := 0
 	for i := 0; i < 3; i++ {
 		checker.AliveTest("https://gstatic.com/generate_204", 204)
 		if proxy.Info.Alive {
 			aliveCount++
 			totalDelay += proxy.Info.Delay
+			consecutiveFailures = 0
+		} else {
+			consecutiveFailures++
+			if consecutiveFailures >= 2 {
+				break
+			}
 		}
 	}
 
@@ -477,6 +484,7 @@ func proxyCheckTask(proxy *info.Proxy) {
 		return
 	}
 
+	proxy.Info.Alive = true
 	proxy.Info.Delay = totalDelay / uint16(aliveCount)
 
 	for _, item := range config.GlobalConfig.Check.Items {

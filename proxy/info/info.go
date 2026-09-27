@@ -98,10 +98,9 @@ func BuildTransport(proxy constant.Proxy, ctx context.Context) *http.Transport {
 		IdleConnTimeout:       90 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
-		DisableKeepAlives:     true,
 		ForceAttemptHTTP2:     false,
 		MaxConnsPerHost:       0,
-		MaxIdleConnsPerHost:   0,
+		MaxIdleConnsPerHost:   2,
 	}
 	return transport
 }
