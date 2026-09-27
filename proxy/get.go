@@ -10,7 +10,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"unicode"
 	"unicode/utf8"
 
 	"github.com/bestruirui/bestsub/config"
@@ -37,8 +36,7 @@ func GetProxies(proxies *[]info.Proxy) {
 		subUrl := subUrl
 		pool.Submit(func() {
 			defer wg.Done()
-			processedUrl := replaceDateTimePlaceholders(subUrl)
-			taskGetProxies(processedUrl, proxies)
+			taskGetProxies(subUrl, proxies)
 		})
 	}
 	wg.Wait()
@@ -57,23 +55,24 @@ func replaceDateTimePlaceholders(url string) string {
 	return r.Replace(url)
 }
 
-func taskGetProxies(args string, proxiesInfo *[]info.Proxy) {
-
-	data, err := getDateFromSubs(args)
+func taskGetProxies(subUrl string, proxiesInfo *[]info.Proxy) {
+	processedUrl := replaceDateTimePlaceholders(subUrl)
+	data, err := getDateFromSubs(processedUrl)
 	if err != nil {
-		log.Warn("subscription link [%s] get data failed: %v", args, err)
+		recordSubURLFailure(subUrl)
+		log.Warn("subscription link [%s] get data failed: %v", processedUrl, err)
 		return
 	}
-	if IsYaml(data, args) {
-		err := ParseYamlProxy(data, proxiesInfo, args)
+	if IsYaml(data, processedUrl) {
+		err := ParseYamlProxy(data, proxiesInfo, processedUrl)
 		if err != nil {
-			log.Warn("subscription link [%s] has no proxies", args)
+			log.Warn("subscription link [%s] has no proxies", processedUrl)
 			return
 		}
 	} else {
 		reg, _ := regexp.Compile(`^(ssr://|ss://|vmess://|trojan://|vless://|hysteria://|hy2://|hysteria2://)`)
 		if !reg.Match(data) {
-			log.Debug("subscription link [%s] is not a v2ray subscription link, attempting to decode the subscription link using base64", args)
+			log.Debug("subscription link [%s] is not a v2ray subscription link, attempting to decode the subscription link using base64", processedUrl)
 			data = []byte(parser.DecodeBase64(string(data)))
 		}
 		if reg.Match(data) {
@@ -91,14 +90,14 @@ func taskGetProxies(args string, proxiesInfo *[]info.Proxy) {
 					for _, t := range config.GlobalConfig.TypeInclude {
 						if t == parseProxy["type"].(string) {
 							mihomoProxiesMutex.Lock()
-							*proxiesInfo = append(*proxiesInfo, info.Proxy{Raw: parseProxy, SubUrl: args})
+							*proxiesInfo = append(*proxiesInfo, info.Proxy{Raw: parseProxy, SubUrl: processedUrl})
 							mihomoProxiesMutex.Unlock()
 							break
 						}
 					}
 				} else {
 					mihomoProxiesMutex.Lock()
-					*proxiesInfo = append(*proxiesInfo, info.Proxy{Raw: parseProxy, SubUrl: args})
+					*proxiesInfo = append(*proxiesInfo, info.Proxy{Raw: parseProxy, SubUrl: processedUrl})
 					mihomoProxiesMutex.Unlock()
 				}
 
@@ -152,7 +151,9 @@ func removeAllControlCharacters(data []byte) []byte {
 	var cleanedData []byte
 	for len(data) > 0 {
 		r, size := utf8.DecodeRune(data)
-		if r != utf8.RuneError && (r >= 32 && r <= 126) || r == '\n' || r == '\t' || r == '\r' || unicode.Is(unicode.Han, r) {
+		invalid := r == utf8.RuneError && size == 1
+		control := (r < 32 && r != '\n' && r != '\t' && r != '\r') || (r >= 127 && r <= 159)
+		if !invalid && !control {
 			cleanedData = append(cleanedData, data[:size]...)
 		}
 		data = data[size:]
