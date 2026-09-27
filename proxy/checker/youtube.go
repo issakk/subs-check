@@ -31,7 +31,9 @@ func (c *Checker) YoutubeTest() {
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	// "countryCode" sits near the top of the page; capping the read avoids
+	// pulling the whole multi-hundred-KB html for every checked node.
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1024*1024))
 	if err != nil {
 		return
 	}

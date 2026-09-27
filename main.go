@@ -286,13 +286,13 @@ func maintask(nextCheck time.Time) {
 
 	wg.Wait()
 
-	for i := 0; i < len(proxies); {
+	kept := proxies[:0]
+	for i := range proxies {
 		if proxies[i].Info.Alive {
-			i++
-		} else {
-			proxies = append(proxies[:i], proxies[i+1:]...)
+			kept = append(kept, proxies[i])
 		}
 	}
+	proxies = kept
 
 	sort.Slice(proxies, func(i, j int) bool {
 		return proxies[i].Info.Delay < proxies[j].Info.Delay
