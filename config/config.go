@@ -57,3 +57,8 @@ type Config struct {
 }
 
 var GlobalConfig Config
+
+// ConfigPath is the absolute path of the loaded config file. It is set at
+// startup so other packages can modify the file (e.g. commenting out
+// subscription links that keep failing).
+var ConfigPath string

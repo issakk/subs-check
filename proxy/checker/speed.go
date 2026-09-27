@@ -38,18 +38,20 @@ func (c *Checker) CheckSpeed() {
 	}
 
 	for _, url := range config.GlobalConfig.Check.SpeedTestUrl {
-		startTime := time.Time{}
 		reqCtx, cancel := context.WithTimeout(c.Proxy.Ctx, time.Duration(config.GlobalConfig.Check.Timeout)*time.Second)
 
-		req, err := http.NewRequestWithContext(reqCtx, "GET", url, nil)
+		req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, url, nil)
 		if err != nil {
 			cancel()
 			continue
 		}
 
+		// GotFirstResponseByte fires on a transport goroutine, so the timestamp
+		// must be atomic to be read safely from this one.
+		var firstByteNano atomic.Int64
 		trace := &httptrace.ClientTrace{
 			GotFirstResponseByte: func() {
-				startTime = time.Now()
+				firstByteNano.CompareAndSwap(0, time.Now().UnixNano())
 			},
 		}
 		req = req.WithContext(httptrace.WithClientTrace(req.Context(), trace))
@@ -59,17 +61,22 @@ func (c *Checker) CheckSpeed() {
 			cancel()
 			continue
 		}
+		if resp.StatusCode != http.StatusOK {
+			resp.Body.Close()
+			cancel()
+			log.Debug("speed test url %v returned status %d, skip", url, resp.StatusCode)
+			continue
+		}
 
-		var totalBytes int64
-		var bytesRead atomic.Int64
 		limitedReader := &io.LimitedReader{
 			R: resp.Body,
 			N: int64(config.GlobalConfig.Check.DownloadSize) * 1024 * 1024,
 		}
-
-		copyCtx, copyCancel := context.WithTimeout(c.Proxy.Ctx, time.Duration(config.GlobalConfig.Check.DownloadTimeout)*time.Second)
+		var bytesRead atomic.Int64
 		done := make(chan struct{})
+		copyCtx, copyCancel := context.WithTimeout(c.Proxy.Ctx, time.Duration(config.GlobalConfig.Check.DownloadTimeout)*time.Second)
 		go func() {
+			defer close(done)
 			buf := make([]byte, 32*1024)
 			for {
 				n, err := limitedReader.Read(buf)
@@ -80,8 +87,6 @@ func (c *Checker) CheckSpeed() {
 					break
 				}
 			}
-			totalBytes = bytesRead.Load()
-			close(done)
 		}()
 
 		timeoutOccurred := false
@@ -89,20 +94,26 @@ func (c *Checker) CheckSpeed() {
 		case <-done:
 		case <-copyCtx.Done():
 			timeoutOccurred = true
-			totalBytes = bytesRead.Load()
-			err = copyCtx.Err()
 		}
 
 		resp.Body.Close()
+		// Closing the body makes the download goroutine exit immediately;
+		// wait briefly so the byte count covers everything actually read.
+		select {
+		case <-done:
+		case <-time.After(time.Second):
+		}
 		copyCancel()
 		cancel()
 
+		totalBytes := bytesRead.Load()
 		if totalBytes > 0 {
-			if startTime.IsZero() {
-				startTime = time.Now()
+			startNano := firstByteNano.Load()
+			if startNano == 0 {
+				startNano = time.Now().UnixNano()
 			}
-			duration := time.Since(startTime).Milliseconds()
-			if duration == 0 {
+			duration := (time.Now().UnixNano() - startNano) / int64(time.Millisecond)
+			if duration <= 0 {
 				duration = 1
 			}
 
@@ -114,10 +125,6 @@ func (c *Checker) CheckSpeed() {
 			}
 
 			break
-		}
-
-		if err != nil {
-			continue
 		}
 	}
 }
