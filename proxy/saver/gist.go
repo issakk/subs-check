@@ -134,7 +134,7 @@ func (g *GistUploader) doUpload(jsonData []byte) error {
 
 func (g *GistUploader) createRequest(jsonData []byte) (*http.Request, error) {
 	url := gistAPIURL + "/" + g.id
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest(http.MethodPatch, url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("create request failed: %w", err)
 	}

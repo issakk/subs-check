@@ -28,6 +28,7 @@ func (p *Proxy) CountryCodeFromApi() {
 	}
 	var countryCode string
 
+outer:
 	for _, api := range apis {
 		for attempts := 0; attempts < 5; attempts++ {
 			req, err := http.NewRequestWithContext(ctx, "GET", api, nil)
@@ -55,47 +56,31 @@ func (p *Proxy) CountryCodeFromApi() {
 				time.Sleep(time.Second * time.Duration(attempts))
 				continue
 			}
-			defer resp.Body.Close()
 
 			body, err := io.ReadAll(resp.Body)
+			resp.Body.Close()
 			if err != nil {
 				time.Sleep(time.Second * time.Duration(attempts))
 				continue
 			}
 
 			ipinfo := map[string]any{}
-			err = json.Unmarshal(body, &ipinfo)
-			if err != nil {
+			if err := json.Unmarshal(body, &ipinfo); err != nil {
 				time.Sleep(time.Second * time.Duration(attempts))
 				continue
 			}
 
-			ok := false
+			var code string
+			var ok bool
 			switch api {
-			case "https://api.ip.sb/geoip":
-				if code, exists := ipinfo["country_code"].(string); exists {
-					countryCode = code
-					ok = true
-				}
-			case "https://ipapi.co/json":
-				if code, exists := ipinfo["country_code"].(string); exists {
-					countryCode = code
-					ok = true
-				}
-			case "https://ip.seeip.org/geoip":
-				if code, exists := ipinfo["country_code"].(string); exists {
-					countryCode = code
-					ok = true
-				}
+			case "https://api.ip.sb/geoip", "https://ipapi.co/json", "https://ip.seeip.org/geoip":
+				code, ok = ipinfo["country_code"].(string)
 			case "https://api.myip.com":
-				if code, exists := ipinfo["cc"].(string); exists {
-					countryCode = code
-					ok = true
-				}
+				code, ok = ipinfo["cc"].(string)
 			}
-
-			if ok && countryCode != "" {
-				break
+			if ok && code != "" {
+				countryCode = code
+				break outer
 			}
 		}
 	}

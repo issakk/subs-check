@@ -47,17 +47,26 @@ func (p *Proxy) Close() {
 	if p.Cancel != nil {
 		p.Cancel()
 	}
+	if p.Client == nil {
+		return
+	}
 	if transport, ok := p.Client.Transport.(*http.Transport); ok {
 		transport.CloseIdleConnections()
 	}
 }
 func (p *Proxy) CloseTransport() {
+	if p.Client == nil {
+		return
+	}
 	if transport, ok := p.Client.Transport.(*http.Transport); ok {
 		transport.CloseIdleConnections()
 	}
 }
-func (p *Proxy) New() error {
-	p.Ctx, p.Cancel = context.WithCancel(context.Background())
+func (p *Proxy) New(parent context.Context) error {
+	if parent == nil {
+		parent = context.Background()
+	}
+	p.Ctx, p.Cancel = context.WithCancel(parent)
 	proxy, err := adapter.ParseProxy(p.Raw)
 	if err != nil {
 		return err

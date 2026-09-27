@@ -95,6 +95,7 @@ func (app *App) initConfigPath() error {
 	if app.renamePath == "" {
 		app.renamePath = filepath.Join(configDir, "rename.yaml")
 	}
+	config.ConfigPath = app.configPath
 	return nil
 }
 
@@ -456,7 +457,7 @@ func saveProxySource(proxies *[]info.Proxy) {
 }
 
 func proxyCheckTask(proxy *info.Proxy) {
-	if proxy.New() != nil {
+	if proxy.New(context.Background()) != nil {
 		return
 	}
 	defer proxy.Close()
@@ -505,7 +506,7 @@ func proxyCheckTask(proxy *info.Proxy) {
 }
 
 func proxySpeedCtxTask(p *info.Proxy, ctx context.Context, cancel context.CancelFunc, passedCount *int32) {
-	if p.New() != nil {
+	if p.New(ctx) != nil {
 		return
 	}
 	defer p.Close()
@@ -533,6 +534,10 @@ func checkConfig() {
 		os.Exit(1)
 	}
 	log.Info("concurrents: %v", config.GlobalConfig.Check.Concurrent)
+	if config.GlobalConfig.SubUrlsReTry <= 0 {
+		config.GlobalConfig.SubUrlsReTry = 3
+		log.Info("sub-urls-retry not set, using default: 3")
+	}
 	log.Info("save methods: %v", config.GlobalConfig.Save.Method)
 	if config.GlobalConfig.SubUrls == nil {
 		log.Error("sub-urls is required")

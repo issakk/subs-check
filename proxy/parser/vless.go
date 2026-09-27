@@ -28,6 +28,7 @@ func ParseVless(data string) (map[string]any, error) {
 	}
 
 	query := parsedURL.Query()
+	security := query.Get("security")
 
 	proxy := map[string]any{
 		"name":               parsedURL.Fragment,
@@ -36,7 +37,7 @@ func ParseVless(data string) (map[string]any, error) {
 		"port":               port,
 		"uuid":               parsedURL.User.String(),
 		"network":            query.Get("type"),
-		"tls":                query.Get("security") != "none",
+		"tls":                security == "tls" || security == "reality",
 		"udp":                query.Get("udp") == "true",
 		"servername":         query.Get("sni"),
 		"flow":               query.Get("flow"),
@@ -54,7 +55,7 @@ func ParseVless(data string) (map[string]any, error) {
 		"grpc-opts": map[string]any{
 			"grpc-service-name": query.Get("serviceName"),
 		},
-		"security":    query.Get("security"),
+		"security":    security,
 		"sni":         query.Get("sni"),
 		"fp":          query.Get("fp"),
 		"pbk":         query.Get("pbk"),
