@@ -3,7 +3,6 @@ package info
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"github.com/bestruirui/bestsub/utils/log"
 	"github.com/dlclark/regexp2"
 	"github.com/spf13/cast"
@@ -111,9 +110,15 @@ type Country struct {
 	Recognition string `yaml:"recognition"`
 }
 
-var CountryCodeRegex []Country
+type compiledCountry struct {
+	Name string
+	Re   *regexp2.Regexp
+}
+
+var CountryCodeRegex []compiledCountry
 
 func CountryCodeRegexInit(renamePath string) {
+	var countries []Country
 	data, err := os.ReadFile(renamePath)
 	if err != nil {
 		log.Error("read rename file failed: %v", err)
@@ -121,20 +126,28 @@ func CountryCodeRegexInit(renamePath string) {
 		os.Exit(1)
 	}
 
-	err = yaml.Unmarshal(data, &CountryCodeRegex)
-	if err != nil {
+	if err := yaml.Unmarshal(data, &countries); err != nil {
 		log.Error("parse rename file failed: %v", err)
 		log.Info("please download rename file from https://github.com/bestruirui/BestSub/tree/master/doc/rename.yaml")
 		os.Exit(1)
+	}
+
+	CountryCodeRegex = make([]compiledCountry, 0, len(countries))
+	for _, country := range countries {
+		re, err := regexp2.Compile(country.Recognition, regexp2.None)
+		if err != nil {
+			log.Warn("compile rename regex [%s] failed: %v", country.Recognition, err)
+			continue
+		}
+		CountryCodeRegex = append(CountryCodeRegex, compiledCountry{Name: country.Name, Re: re})
 	}
 }
 
 func (p *Proxy) CountryCodeRegex() {
 	for _, country := range CountryCodeRegex {
-		re := regexp2.MustCompile(country.Recognition, regexp2.None)
-		match, err := re.MatchString(cast.ToString(p.Raw["name"]))
+		match, err := country.Re.MatchString(cast.ToString(p.Raw["name"]))
 		if err != nil {
-			fmt.Printf("Regex match error: %v\n", err)
+			log.Warn("regex match error: %v", err)
 			continue
 		}
 		if match {

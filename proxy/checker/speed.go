@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptrace"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -13,9 +14,32 @@ import (
 	"github.com/dlclark/regexp2"
 )
 
+var (
+	speedSkipMu    sync.Mutex
+	speedSkipCache string
+	speedSkipRe    *regexp2.Regexp
+)
+
+// getSpeedSkipRegex reuses the compiled pattern; it only recompiles when the
+// config was reloaded with a different speed-skip-name.
+func getSpeedSkipRegex(pattern string) (*regexp2.Regexp, error) {
+	speedSkipMu.Lock()
+	defer speedSkipMu.Unlock()
+	if speedSkipRe != nil && speedSkipCache == pattern {
+		return speedSkipRe, nil
+	}
+	re, err := regexp2.Compile(pattern, regexp2.None)
+	if err != nil {
+		return nil, err
+	}
+	speedSkipCache = pattern
+	speedSkipRe = re
+	return re, nil
+}
+
 func (c *Checker) CheckSpeed() {
 	if config.GlobalConfig.Check.SpeedSkipName != "" {
-		re, err := regexp2.Compile(config.GlobalConfig.Check.SpeedSkipName, regexp2.None)
+		re, err := getSpeedSkipRegex(config.GlobalConfig.Check.SpeedSkipName)
 		if err != nil {
 			log.Debug("compile speed skip name failed: %v", err)
 			return

@@ -23,6 +23,8 @@ import (
 
 var mihomoProxiesMutex sync.Mutex
 
+var v2raySubPrefix = regexp.MustCompile(`^(ssr://|ss://|vmess://|trojan://|vless://|hysteria://|hy2://|hysteria2://)`)
+
 func GetProxies(proxies *[]info.Proxy) {
 	log.Info("subscription links count: %v", len(config.GlobalConfig.SubUrls))
 	numWorkers := min(len(config.GlobalConfig.SubUrls), config.GlobalConfig.Check.Concurrent)
@@ -70,12 +72,11 @@ func taskGetProxies(subUrl string, proxiesInfo *[]info.Proxy) {
 			return
 		}
 	} else {
-		reg, _ := regexp.Compile(`^(ssr://|ss://|vmess://|trojan://|vless://|hysteria://|hy2://|hysteria2://)`)
-		if !reg.Match(data) {
+		if !v2raySubPrefix.Match(data) {
 			log.Debug("subscription link [%s] is not a v2ray subscription link, attempting to decode the subscription link using base64", processedUrl)
 			data = []byte(parser.DecodeBase64(string(data)))
 		}
-		if reg.Match(data) {
+		if v2raySubPrefix.Match(data) {
 			proxies := strings.Split(string(data), "\n")
 
 			for _, proxy := range proxies {
@@ -162,17 +163,24 @@ func removeAllControlCharacters(data []byte) []byte {
 }
 
 func IsYaml(data []byte, subUrl string) bool {
-	reg, _ := regexp.Compile(`^(ssr://|ss://|vmess://|trojan://|vless://|hysteria://|hy2://|hysteria2://)`)
-
-	decodedData := parser.DecodeBase64(string(data))
-	if reg.MatchString(decodedData) {
-		log.Debug("subscription link [%s] is a v2ray subscription link", subUrl)
-		return false
-	}
-
+	// "proxies:" is a strong yaml marker; check it first so the base64 probe
+	// below only runs for non-yaml payloads.
 	if bytes.Contains(data, []byte("proxies:")) {
 		log.Debug("subscription link [%s] is a yaml file", subUrl)
 		return true
+	}
+
+	// Decoding the full body just to detect a v2ray subscription is wasteful
+	// for large payloads: the scheme sits right at the start after decoding,
+	// so probing a prefix is enough. A false negative here is harmless — the
+	// caller falls back to decoding the whole body itself.
+	head := data
+	if len(head) > 4096 {
+		head = head[:4096]
+	}
+	if v2raySubPrefix.MatchString(parser.DecodeBase64(string(head))) {
+		log.Debug("subscription link [%s] is a v2ray subscription link", subUrl)
+		return false
 	}
 	return false
 }
