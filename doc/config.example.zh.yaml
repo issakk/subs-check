@@ -47,6 +47,13 @@ save:
   # 保存端口
   port: 18989
 
+# 立即检测触发接口: 调用后马上跑一次检测, 例如 GET /run?token=xxx
+api:
+  # 接口 token, 留空则不启用 API 服务
+  token: ""
+  # API 服务端口
+  port: 8799
+
 # mihomo api
 mihomo-api-url: "http://192.168.31.11:9090"
 # mihomo api secret

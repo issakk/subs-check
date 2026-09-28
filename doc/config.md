@@ -49,6 +49,23 @@ save:
   - `worker-url`: Worker URL
   - `worker-token`: Worker token
 
+## api
+
+```yaml
+api:
+  token: "your-token"
+  port: 8799
+```
+
+- `token`: Token for the trigger API. Leave empty to disable the API server
+- `port`: API server port, defaults to `8799`
+
+Request `GET /run?token=<token>` (POST also works, and `Authorization: Bearer <token>` is accepted) to run a check immediately. The check runs asynchronously; the response tells you whether it started:
+
+- `200` `{"status":"started"}`: the check has been started
+- `409` `{"status":"already_running"}`: a check is already in progress
+- `401`: wrong token
+
 ## mihomo
 
 ```yaml
