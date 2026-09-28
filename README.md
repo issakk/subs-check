@@ -30,6 +30,7 @@
 - ✅ Test node speed
 - ✅ Classify and save based on unlocking status
 - ✅ Automatically update subscriptions
+- ✅ Trigger a check immediately via API
 
 ## Characteristics
 

@@ -88,6 +88,23 @@ save:
 - after-save-do: 保存后执行的脚本请填写绝对路径 支持 `js` `py` `sh` `ps1` 等 示例：[powershell.ps1](./test/powershell.ps1)
 
 
+## api
+
+```yaml
+api:
+  token: "your-token"
+  port: 8799
+```
+
+- `token`: 触发接口的 token，留空则不启用 API 服务
+- `port`: API 服务端口，默认 `8799`
+
+调用 `GET /run?token=<token>`（也支持 POST，以及 `Authorization: Bearer <token>` 请求头）即可立即跑一次检测。检测异步执行，接口会立刻返回：
+
+- `200` `{"status":"started"}`：已触发检测
+- `409` `{"status":"already_running"}`：已有检测正在运行
+- `401`：token 错误
+
 ## mihomo
 
 ```yaml

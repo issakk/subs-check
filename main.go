@@ -15,6 +15,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/bestruirui/bestsub/api"
 	"github.com/bestruirui/bestsub/config"
 	"github.com/bestruirui/bestsub/proxy"
 	"github.com/bestruirui/bestsub/proxy/checker"
@@ -39,6 +40,10 @@ type App struct {
 }
 
 var proxySourceFileMutex sync.Mutex
+
+// taskMutex serializes checks so cron, interval and API triggers never run
+// two maintask at the same time.
+var taskMutex sync.Mutex
 
 func NewApp() *App {
 	configPath := flag.String("f", "", "config file path")
@@ -78,6 +83,7 @@ func (app *App) Initialize() error {
 	if utils.Contains(config.GlobalConfig.Save.Method, "http") {
 		saver.StartHTTPServer()
 	}
+	api.Start(tryRunCheck)
 	return nil
 }
 
@@ -197,7 +203,9 @@ func (app *App) Run() {
 
 	if config.GlobalConfig.Check.RunAtStartup {
 		log.Info("run at startup is enabled, starting task")
+		taskMutex.Lock()
 		maintask(time.Now())
+		taskMutex.Unlock()
 	}
 
 	if len(config.GlobalConfig.Check.Cron) > 0 {
@@ -217,8 +225,7 @@ func (app *App) Run() {
 			var err error
 			entryID, err = app.c.AddFunc(expr, func() {
 				nextTime := app.c.Entry(entryID).Next
-				maintask(nextTime)
-				utils.UpdateSubs()
+				runCheck(nextTime)
 				log.Info("cron job with expression '%s' finished, next check time: %v", expr, nextTime.Format("2006-01-02 15:04:05"))
 			})
 			if err != nil {
@@ -240,8 +247,7 @@ func (app *App) Run() {
 		log.Info("start task with interval: %d minutes", app.interval)
 		for {
 			nextCheck := time.Now().Add(time.Duration(app.interval) * time.Minute)
-			maintask(nextCheck)
-			utils.UpdateSubs()
+			runCheck(nextCheck)
 			log.Info("next check time: %v", nextCheck.Format("2006-01-02 15:04:05"))
 			time.Sleep(time.Duration(app.interval) * time.Minute)
 		}
@@ -259,6 +265,28 @@ func main() {
 
 	app.Run()
 }
+
+// runCheck runs one full check and then refreshes mihomo subscriptions,
+// waiting for any in-progress check to finish first.
+func runCheck(nextCheck time.Time) {
+	taskMutex.Lock()
+	defer taskMutex.Unlock()
+	maintask(nextCheck)
+	utils.UpdateSubs()
+}
+
+// tryRunCheck is runCheck for the API trigger: it never waits and returns
+// false when a check is already running.
+func tryRunCheck() bool {
+	if !taskMutex.TryLock() {
+		return false
+	}
+	defer taskMutex.Unlock()
+	maintask(time.Now())
+	utils.UpdateSubs()
+	return true
+}
+
 func maintask(nextCheck time.Time) {
 	startTime := time.Now()
 	proxies := make([]info.Proxy, 0)

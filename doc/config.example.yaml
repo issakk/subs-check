@@ -60,6 +60,13 @@ save:
   # Worker token
   worker-token: your-worker-token
 
+# Trigger API: request it to run a check immediately, e.g. GET /run?token=xxx
+api:
+  # Token for the trigger API, leave empty to disable the API server
+  token: ""
+  # API server port
+  port: 8799
+
 # mihomo api
 mihomo-api-url: "http://192.168.31.11:9090"
 # mihomo api secret

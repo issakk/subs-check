@@ -1,5 +1,9 @@
 package config
 
+type ApiConfig struct {
+	Token string `yaml:"token"`
+	Port  int    `yaml:"port"`
+}
 type ProxyConfig struct {
 	Type     string `yaml:"type"`
 	Address  string `yaml:"address"`
@@ -52,6 +56,7 @@ type Config struct {
 	MihomoApiSecret string       `yaml:"mihomo-api-secret"`
 	Proxy           ProxyConfig  `yaml:"proxy"`
 	Rename          RenameConfig `yaml:"rename"`
+	Api             ApiConfig    `yaml:"api"`
 	LogLevel        string       `yaml:"log-level"`
 	WeworkBot       string       `yaml:"wework-bot"` // 新增企业微信机器人webhook地址
 }
