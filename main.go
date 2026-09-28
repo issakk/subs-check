@@ -275,15 +275,18 @@ func runCheck(nextCheck time.Time) {
 	utils.UpdateSubs()
 }
 
-// tryRunCheck is runCheck for the API trigger: it never waits and returns
-// false when a check is already running.
+// tryRunCheck is runCheck for the API trigger: it starts the check in the
+// background and returns immediately, or false when a check is already
+// running.
 func tryRunCheck() bool {
 	if !taskMutex.TryLock() {
 		return false
 	}
-	defer taskMutex.Unlock()
-	maintask(time.Now())
-	utils.UpdateSubs()
+	go func() {
+		defer taskMutex.Unlock()
+		maintask(time.Now())
+		utils.UpdateSubs()
+	}()
 	return true
 }
 
