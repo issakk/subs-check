@@ -62,7 +62,7 @@ func (c *Checker) CheckSpeed() {
 	}
 
 	for _, url := range config.GlobalConfig.Check.SpeedTestUrl {
-		reqCtx, cancel := context.WithTimeout(c.Proxy.Ctx, time.Duration(config.GlobalConfig.Check.Timeout)*time.Millisecond)
+		reqCtx, cancel := context.WithTimeout(c.Proxy.Ctx, time.Duration(config.GlobalConfig.Check.DownloadTimeout)*time.Second)
 
 		req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, url, nil)
 		if err != nil {
